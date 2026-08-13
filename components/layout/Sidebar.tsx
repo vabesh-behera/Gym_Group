@@ -18,7 +18,7 @@ export function Sidebar() {
         </div>
         <div>
           <p className="text-sm font-bold leading-none">PromoIQ</p>
-          <p className="mt-1 text-[11px] text-white/50">by Gym Group Insights</p>
+          <p className="mt-1 text-[11px] text-white/50">by Nagarro</p>
         </div>
       </div>
 

@@ -66,20 +66,29 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     },
   });
 
+  // ---- Clear everything that depends on Region/Club before recreating them,
+  // so a rename (e.g. old placeholder club names -> real site names) doesn't
+  // leave orphaned rows behind. ----
+  log("Clearing previous portfolio data…");
+  await prisma.changeLogEntry.deleteMany({});
+  await prisma.alert.deleteMany({});
+  await prisma.externalSignal.deleteMany({});
+  await prisma.memberEvent.deleteMany({});
+  await prisma.campaign.deleteMany({});
+  await prisma.clubUtilization.deleteMany({});
+  await prisma.club.deleteMany({});
+  await prisma.region.deleteMany({});
+
   // ---- Regions ----
-  const regions = await Promise.all(
-    REGION_NAMES.map((name) => prisma.region.upsert({ where: { name }, update: {}, create: { name } })),
-  );
+  const regions = await Promise.all(REGION_NAMES.map((name) => prisma.region.create({ data: { name } })));
   const regionByName = new Map(regions.map((r) => [r.name, r]));
 
   // ---- Clubs ----
   const clubs = [];
   for (const c of CLUB_SEED) {
     const region = regionByName.get(c.region)!;
-    const club = await prisma.club.upsert({
-      where: { id: `${c.name}-seed`.replace(/\s+/g, "-").toLowerCase() },
-      update: {},
-      create: {
+    const club = await prisma.club.create({
+      data: {
         id: `${c.name}-seed`.replace(/\s+/g, "-").toLowerCase(),
         name: c.name,
         catchmentArea: c.catchmentArea,
@@ -108,7 +117,6 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
   // ---- Club utilisation (day 0-6, hour 6-22) ----
   log("Seeding club utilisation…");
-  await prisma.clubUtilization.deleteMany({});
   const utilRows: { clubId: string; dayOfWeek: number; hour: number; utilisationPct: number }[] = [];
   for (const club of clubs) {
     for (let day = 0; day <= 6; day++) {
@@ -173,8 +181,6 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
   // ---- Campaigns ----
   log("Seeding campaigns…");
-  await prisma.memberEvent.deleteMany({});
-  await prisma.campaign.deleteMany({});
 
   const TODAY = new Date("2026-08-13");
   const dayMs = 24 * 60 * 60 * 1000;
@@ -333,25 +339,23 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
   // ---- External signals ----
   log("Seeding external signals…");
-  await prisma.externalSignal.deleteMany({});
   await prisma.externalSignal.createMany({
     data: [
-      { type: "COMPETITOR", description: "PureGym opened a new 24/7 site 1.2 miles from Gym Group Croydon, offering £0 joining fee for the first month.", metadata: { club: "Croydon" } },
+      { type: "COMPETITOR", description: "PureGym opened a new 24/7 site 1.2 miles from Gym Group Bexleyheath, offering £0 joining fee for the first month.", metadata: { club: "Bexleyheath" } },
       { type: "COMPETITOR", description: "Anytime Fitness cut its off-peak membership price by 15% across Midlands sites.", metadata: { region: "Midlands" } },
       { type: "WEATHER", description: "Met Office forecasts a wet, cold week across the North & Scotland region, typically increasing indoor fitness demand.", metadata: { region: "North & Scotland" } },
-      { type: "HOLIDAY", description: "University of Nottingham autumn term starts in 3 weeks — historically a strong window for student membership offers.", metadata: { club: "Nottingham" } },
-      { type: "EVENT", description: "Birmingham city centre office occupancy is trending up 8% month-on-month as hybrid workers return more days.", metadata: { club: "Birmingham City" } },
+      { type: "HOLIDAY", description: "Birmingham City University's Perry Barr campus autumn term starts in 3 weeks — historically a strong window for student membership offers.", metadata: { club: "Birmingham Perry Barr" } },
+      { type: "EVENT", description: "Birmingham city centre office occupancy is trending up 8% month-on-month as hybrid workers return more days.", metadata: { club: "Birmingham Broad Street" } },
       { type: "TREND", description: "Social search interest in \"off-peak gym membership\" is up 22% nationally over the last 30 days.", metadata: {} },
     ],
   });
 
   // ---- Alerts ----
   log("Seeding alerts…");
-  await prisma.alert.deleteMany({});
-  const croydon = clubs.find((c) => c.name === "Croydon")!;
-  const nottingham = clubs.find((c) => c.name === "Nottingham")!;
-  const leeds = clubs.find((c) => c.name === "Leeds")!;
-  const glasgow = clubs.find((c) => c.name === "Glasgow")!;
+  const bexleyheath = clubs.find((c) => c.name === "Bexleyheath")!;
+  const perryBarr = clubs.find((c) => c.name === "Birmingham Perry Barr")!;
+  const altrincham = clubs.find((c) => c.name === "Altrincham")!;
+  const ayr = clubs.find((c) => c.name === "Ayr")!;
 
   await prisma.alert.createMany({
     data: [
@@ -359,45 +363,45 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         severity: "CRITICAL",
         category: "Competitor Threat",
         code: "A-2041",
-        title: "PureGym opened a £0-joining-fee site 1.2 miles from Croydon — no Gym Group counter-offer live",
-        description: "Rival opened a 24/7 site within the Croydon catchment offering a £0 joining fee for the first month. No defensive campaign is currently scheduled.",
+        title: "PureGym opened a £0-joining-fee site 1.2 miles from Bexleyheath — no Gym Group counter-offer live",
+        description: "Rival opened a 24/7 site within the Bexleyheath catchment offering a £0 joining fee for the first month. No defensive campaign is currently scheduled.",
         impactValue: 34000,
         impactLabel: "-£34K incremental revenue at risk over 3-week window",
-        clubId: croydon.id,
-        regionId: croydon.regionId,
+        clubId: bexleyheath.id,
+        regionId: bexleyheath.regionId,
       },
       {
         severity: "CRITICAL",
         category: "Over-Subsidisation Risk",
         code: "A-2038",
-        title: "Nottingham Student Membership Offer is subsidising 38% of baseline joins",
+        title: "Birmingham Perry Barr Student Membership Offer is subsidising 38% of baseline joins",
         description: "The discount depth on the current student offer is deep enough that a large share of joins would likely have happened anyway at full price.",
         impactValue: 18600,
         impactLabel: "-£18.6K wasted spend (rolling 4 weeks)",
-        clubId: nottingham.id,
-        regionId: nottingham.regionId,
+        clubId: perryBarr.id,
+        regionId: perryBarr.regionId,
       },
       {
         severity: "WARNING",
         category: "Capacity Risk",
         code: "A-2035",
-        title: "Leeds evening peak utilisation is forecast to exceed 96% next week",
-        description: "Current acquisition campaigns at Leeds are on track to push 6-8pm utilisation past safe capacity, risking member experience complaints.",
+        title: "Altrincham evening peak utilisation is forecast to exceed 96% next week",
+        description: "Current acquisition campaigns at Altrincham are on track to push 6-8pm utilisation past safe capacity, risking member experience complaints.",
         impactValue: 0,
         impactLabel: "Congestion risk — no defensive action scheduled",
-        clubId: leeds.id,
-        regionId: leeds.regionId,
+        clubId: altrincham.id,
+        regionId: altrincham.regionId,
       },
       {
         severity: "WARNING",
         category: "Underperformance",
         code: "A-2031",
-        title: "Glasgow Off-Peak Membership uptake is 22% behind plan",
-        description: "Daytime pass uptake at Glasgow has consistently missed the weekly plan for the last 3 weeks.",
+        title: "Ayr Off-Peak Membership uptake is 22% behind plan",
+        description: "Daytime pass uptake at Ayr has consistently missed the weekly plan for the last 3 weeks.",
         impactValue: 7400,
         impactLabel: "-£7.4K vs plan (rolling 3 weeks)",
-        clubId: glasgow.id,
-        regionId: glasgow.regionId,
+        clubId: ayr.id,
+        regionId: ayr.regionId,
       },
       {
         severity: "WARNING",
@@ -422,15 +426,14 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
   // ---- Change log ----
   log("Seeding change log…");
-  await prisma.changeLogEntry.deleteMany({});
   await prisma.changeLogEntry.createMany({
     data: [
       {
         type: "COMPETITOR_OPENING",
-        entityRef: "PureGym — Croydon",
-        summary: "New 24/7 PureGym site opened 1.2 miles from Gym Group Croydon with an introductory £0 joining fee.",
+        entityRef: "PureGym — Bexleyheath",
+        summary: "New 24/7 PureGym site opened 1.2 miles from Gym Group Bexleyheath with an introductory £0 joining fee.",
         before: { site: "none" },
-        after: { site: "PureGym Croydon Central", joiningFee: "£0 (first month)" },
+        after: { site: "PureGym Bexleyheath", joiningFee: "£0 (first month)" },
       },
       {
         type: "COMPETITOR_PRICE",
@@ -441,14 +444,14 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       },
       {
         type: "COMPETITOR_OFFER",
-        entityRef: "F45 Training — Manchester",
-        summary: "F45 launched a free-first-week trial pass targeted at hybrid workers in Manchester city centre.",
+        entityRef: "F45 Training — Altrincham",
+        summary: "F45 launched a free-first-week trial pass targeted at hybrid workers in Altrincham town centre.",
         before: { trialOffer: "none" },
         after: { trialOffer: "Free first week" },
       },
       {
         type: "INTERNAL_CAMPAIGN_EDIT",
-        entityRef: "Nottingham Student Membership Offer",
+        entityRef: "Birmingham Perry Barr Student Membership Offer",
         summary: "Incentive depth increased ahead of university intake after AI flagged early softness in sign-ups.",
         before: { incentiveDepth: "25%" },
         after: { incentiveDepth: "35%" },

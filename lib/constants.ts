@@ -113,14 +113,17 @@ export const MECHANICS_SEED = [
 
 export const REGION_NAMES = ["London & South East", "Midlands", "North & Scotland"];
 
+// Real The Gym Group UK site names (verified via web search), grouped into
+// three reporting regions for this portfolio view. Catchment area and peak
+// capacity are illustrative operating assumptions, not published figures.
 export const CLUB_SEED = [
-  { name: "Croydon", region: "London & South East", catchmentArea: "South London", peakCapacity: 420 },
-  { name: "Stratford", region: "London & South East", catchmentArea: "East London", peakCapacity: 480 },
-  { name: "Reading Central", region: "London & South East", catchmentArea: "Thames Valley", peakCapacity: 360 },
-  { name: "Birmingham City", region: "Midlands", catchmentArea: "Birmingham Centre", peakCapacity: 400 },
-  { name: "Nottingham", region: "Midlands", catchmentArea: "Nottingham University Quarter", peakCapacity: 340 },
-  { name: "Leicester", region: "Midlands", catchmentArea: "Leicester Centre", peakCapacity: 300 },
-  { name: "Manchester Northern Quarter", region: "North & Scotland", catchmentArea: "Manchester Centre", peakCapacity: 450 },
-  { name: "Leeds", region: "North & Scotland", catchmentArea: "Leeds Centre", peakCapacity: 380 },
-  { name: "Glasgow", region: "North & Scotland", catchmentArea: "Glasgow Centre", peakCapacity: 360 },
+  { name: "Bexleyheath", region: "London & South East", catchmentArea: "South East London", peakCapacity: 420 },
+  { name: "Ashford", region: "London & South East", catchmentArea: "Kent", peakCapacity: 340 },
+  { name: "Basingstoke", region: "London & South East", catchmentArea: "Hampshire", peakCapacity: 360 },
+  { name: "Birmingham Broad Street", region: "Midlands", catchmentArea: "Birmingham City Centre", peakCapacity: 480 },
+  { name: "Birmingham Perry Barr", region: "Midlands", catchmentArea: "North Birmingham", peakCapacity: 380 },
+  { name: "Bedford", region: "Midlands", catchmentArea: "Bedfordshire", peakCapacity: 300 },
+  { name: "Altrincham", region: "North & Scotland", catchmentArea: "Greater Manchester", peakCapacity: 400 },
+  { name: "Barnsley", region: "North & Scotland", catchmentArea: "South Yorkshire", peakCapacity: 340 },
+  { name: "Ayr", region: "North & Scotland", catchmentArea: "South Ayrshire", peakCapacity: 300 },
 ];

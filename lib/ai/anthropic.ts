@@ -58,5 +58,24 @@ export async function generateStructured<T>(params: {
   if (!toolUse || toolUse.type !== "tool_use") {
     throw new Error("Claude did not return a tool_use block");
   }
-  return toolUse.input as T;
+  return normalizeStructuredInput(toolUse.input) as T;
+}
+
+// Claude occasionally emits a nested array/object field as a JSON-encoded
+// string instead of native JSON, even when tool_choice forces the schema.
+// Defensively parse any top-level string value that looks like JSON.
+function normalizeStructuredInput(input: unknown): unknown {
+  if (input === null || typeof input !== "object") return input;
+  const out: Record<string, unknown> = { ...(input as Record<string, unknown>) };
+  for (const [key, value] of Object.entries(out)) {
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) continue;
+    try {
+      out[key] = JSON.parse(trimmed);
+    } catch {
+      // not actually JSON — leave as-is
+    }
+  }
+  return out;
 }

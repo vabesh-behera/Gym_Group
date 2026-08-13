@@ -45,27 +45,31 @@ Clubs: ${clubs.map((c) => `${c.name} (${c.region.name}, peak capacity ${c.peakCa
 Recent external signals:
 ${signals.map((s) => `- [${s.type}] ${s.description}`).join("\n") || "(none)"}`;
 
+  type AlertResult = {
+    severity: "CRITICAL" | "WARNING" | "INSIGHT";
+    category: string;
+    title: string;
+    description: string;
+    impactLabel: string;
+    impactValue: number;
+    clubName: string;
+  };
+
   try {
-    const result = await generateStructured<{
-      alerts: {
-        severity: "CRITICAL" | "WARNING" | "INSIGHT";
-        category: string;
-        title: string;
-        description: string;
-        impactLabel: string;
-        impactValue: number;
-        clubName: string;
-      }[];
-    }>({
+    const result = await generateStructured<{ alerts: AlertResult[] | { alerts: AlertResult[] } }>({
       system: "You generate realistic, data-grounded operational alerts for a gym chain intelligence platform. Never invent club names outside the provided list.",
       prompt,
       schema: ALERT_SCHEMA,
     });
 
+    // Claude sometimes double-wraps the array (e.g. { alerts: { alerts: [...] } })
+    // after the JSON-string normalization step — unwrap defensively.
+    const alerts = Array.isArray(result.alerts) ? result.alerts : (result.alerts?.alerts ?? []);
+
     const count = await prisma.alert.count();
 
     await prisma.$transaction(
-      result.alerts.map((a, i) => {
+      alerts.map((a, i) => {
         const club = clubs.find((c) => c.name === a.clubName) ?? clubs[0];
         return prisma.alert.create({
           data: {

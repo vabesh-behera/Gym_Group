@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { auth } from "@/lib/auth";
+import { getDemoUser } from "@/lib/demo-user";
 import { UserMenu } from "@/components/layout/UserMenu";
 
 export async function PageHeader({
@@ -11,10 +11,10 @@ export async function PageHeader({
   subtitle?: string;
   actions?: ReactNode;
 }) {
-  const session = await auth();
-  const name = session?.user?.name ?? "Guest";
-  const role = session?.user?.role ?? "Portfolio Manager";
-  const initials = session?.user?.initials ?? "GG";
+  const user = await getDemoUser();
+  const name = user?.name ?? "Guest";
+  const role = user?.role ?? "Portfolio Manager";
+  const initials = user?.initials ?? "GG";
 
   return (
     <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border bg-card px-8 py-5">

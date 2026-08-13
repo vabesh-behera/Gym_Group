@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { auth } from "@/lib/auth";
+import { getDemoUser } from "@/lib/demo-user";
 import { prisma } from "@/lib/prisma";
 
 export default async function SettingsPage() {
-  const session = await auth();
+  const user = await getDemoUser();
   const [clubCount, mechanicCount, campaignCount] = await Promise.all([
     prisma.club.count(),
     prisma.mechanic.count(),
@@ -19,9 +19,9 @@ export default async function SettingsPage() {
         <Card>
           <CardHeader title="Account" />
           <div className="space-y-3 text-sm">
-            <Row label="Name" value={session?.user?.name ?? "—"} />
-            <Row label="Email" value={session?.user?.email ?? "—"} />
-            <Row label="Role" value={session?.user?.role ?? "—"} />
+            <Row label="Name" value={user?.name ?? "—"} />
+            <Row label="Email" value={user?.email ?? "—"} />
+            <Row label="Role" value={user?.role ?? "—"} />
           </div>
         </Card>
 

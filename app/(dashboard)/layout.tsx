@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 
-// All dashboard pages read live session + database data — never prerender them.
+// All dashboard pages read live database data — never prerender them.
 export const dynamic = "force-dynamic";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {

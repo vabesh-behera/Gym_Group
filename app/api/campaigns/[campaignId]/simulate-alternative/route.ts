@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateStructured } from "@/lib/ai/anthropic";
 import { simulateCampaign } from "@/lib/simulate/elasticity";
@@ -16,9 +15,6 @@ const SCHEMA = {
 };
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ campaignId: string }> }) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { campaignId } = await ctx.params;
   const body = await req.json();
 

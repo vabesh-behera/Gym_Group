@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getDemoUser } from "@/lib/demo-user";
 import { prisma } from "@/lib/prisma";
 import { chatCompletion } from "@/lib/ai/anthropic";
 import { buildAdvisorContext } from "@/lib/data/advisor-context";
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getDemoUser();
+  if (!user) return NextResponse.json({ error: "No demo user seeded yet" }, { status: 503 });
 
   const { message } = await req.json();
   if (typeof message !== "string" || !message.trim()) {
@@ -15,14 +15,14 @@ export async function POST(req: NextRequest) {
 
   const [history, context] = await Promise.all([
     prisma.chatMessage.findMany({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       orderBy: { createdAt: "asc" },
       take: 20,
     }),
     buildAdvisorContext(),
   ]);
 
-  await prisma.chatMessage.create({ data: { userId: session.user.id, role: "USER", content: message } });
+  await prisma.chatMessage.create({ data: { userId: user.id, role: "USER", content: message } });
 
   const messages = [
     ...history.map((h) => ({ role: h.role === "USER" ? ("user" as const) : ("assistant" as const), content: h.content })),
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       "I'm unable to reach the AI service right now — check that ANTHROPIC_API_KEY is configured correctly. In the meantime, you can review live figures on the Analytics and Planning pages.";
   }
 
-  await prisma.chatMessage.create({ data: { userId: session.user.id, role: "ASSISTANT", content: reply } });
+  await prisma.chatMessage.create({ data: { userId: user.id, role: "ASSISTANT", content: reply } });
 
   return NextResponse.json({ reply });
 }

@@ -1,13 +1,13 @@
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AdvisorClient } from "@/components/intelligence/AdvisorClient";
-import { auth } from "@/lib/auth";
+import { getDemoUser } from "@/lib/demo-user";
 import { prisma } from "@/lib/prisma";
 
 export default async function AdvisorPage() {
-  const session = await auth();
-  const history = session?.user?.id
+  const user = await getDemoUser();
+  const history = user
     ? await prisma.chatMessage.findMany({
-        where: { userId: session.user.id },
+        where: { userId: user.id },
         orderBy: { createdAt: "asc" },
         take: 20,
       })

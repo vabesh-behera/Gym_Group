@@ -217,6 +217,29 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     .filter((m): m is NonNullable<typeof m> => m !== null)
     .sort((a, b) => b.roiPct - a.roiPct);
 
+  // ---- Mechanic x Club matrix ----
+  const mechanicClubMatrix = {
+    mechanics: mechanics
+      .filter((m) => campaigns.some((c) => c.mechanicId === m.id))
+      .map((m) => ({ id: m.id, name: m.name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    clubs: clubs
+      .filter((c) => campaigns.some((camp) => camp.clubId === c.id))
+      .map((c) => ({ id: c.id, name: c.name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    cells: campaigns.reduce<Record<string, { roi: number; count: number; spend: number }>>((acc, c) => {
+      if (!c.clubId) return acc;
+      const key = `${c.mechanicId}:${c.clubId}`;
+      const existing = acc[key] ?? { roi: 0, count: 0, spend: 0 };
+      acc[key] = {
+        roi: (existing.roi * existing.count + c.predictedRoi) / (existing.count + 1),
+        count: existing.count + 1,
+        spend: existing.spend + c.budget,
+      };
+      return acc;
+    }, {}),
+  };
+
   // ---- Club rankings ----
   const clubRankings = clubs
     .map((c) => {
@@ -274,6 +297,7 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     bubblePoints,
     waterfallJoins,
     waterfallRevenue,
+    mechanicClubMatrix,
     heatmap,
     mechanicPerformance,
     clubRankings,

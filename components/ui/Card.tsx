@@ -5,12 +5,18 @@ export function Card({
   children,
   className,
   padded = true,
+  id,
 }: {
   children: ReactNode;
   className?: string;
   padded?: boolean;
+  id?: string;
 }) {
-  return <div className={cn("card", padded && "p-6", className)}>{children}</div>;
+  return (
+    <div id={id} className={cn("card", padded && "p-6", className)}>
+      {children}
+    </div>
+  );
 }
 
 export function CardHeader({

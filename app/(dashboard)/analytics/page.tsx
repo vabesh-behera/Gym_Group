@@ -50,31 +50,37 @@ export default async function AnalyticsPage({
       <div className="space-y-6 px-8 py-6">
         {/* Persona shortcut cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <Card className="flex items-center gap-3 bg-navy text-white" padded>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/15">📊</div>
-            <div>
-              <p className="text-sm font-bold">Portfolio Health</p>
-              <p className="text-xs text-white/60">Senior Leadership</p>
-            </div>
-          </Card>
-          <Card className="flex items-center gap-3" padded>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">🏢</div>
-            <div>
-              <p className="text-sm font-bold text-slate-900">Mechanic × Club</p>
-              <p className="text-xs text-muted">Regional Ops Manager</p>
-            </div>
-          </Card>
-          <Card className="flex items-center gap-3" padded>
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">🧩</div>
-            <div>
-              <p className="text-sm font-bold text-slate-900">Campaign Decomposition</p>
-              <p className="text-xs text-muted">Marketing / Planner</p>
-            </div>
-          </Card>
+          <a href="#kpi-overview" className="block">
+            <Card className="flex items-center gap-3 bg-navy text-white transition hover:bg-navy-soft" padded>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/15">📊</div>
+              <div>
+                <p className="text-sm font-bold">Portfolio Health</p>
+                <p className="text-xs text-white/60">Senior Leadership</p>
+              </div>
+            </Card>
+          </a>
+          <a href="#mechanic-club-matrix" className="block">
+            <Card className="flex items-center gap-3 transition hover:bg-slate-50" padded>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">🏢</div>
+              <div>
+                <p className="text-sm font-bold text-slate-900">Mechanic × Club</p>
+                <p className="text-xs text-muted">Regional Ops Manager</p>
+              </div>
+            </Card>
+          </a>
+          <a href="#campaign-decomposition" className="block">
+            <Card className="flex items-center gap-3 transition hover:bg-slate-50" padded>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100">🧩</div>
+              <div>
+                <p className="text-sm font-bold text-slate-900">Campaign Decomposition</p>
+                <p className="text-xs text-muted">Marketing / Planner</p>
+              </div>
+            </Card>
+          </a>
         </div>
 
         {/* KPI row */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
+        <div id="kpi-overview" className="grid scroll-mt-6 grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
           <KpiCard label="Total Campaigns" value={formatNumber(data.kpis.totalCampaigns)} delta={formatSignedPercent(data.kpis.totalCampaignsDelta)} deltaLabel={`vs ${filters.period === "FY2026" ? "FY2025" : "FY2024"}`} />
           <KpiCard label="Total Investment" value={formatGBP(data.kpis.totalInvestment, { compact: true })} delta={formatSignedPercent(data.kpis.totalInvestmentDelta)} deltaLabel="vs prior period" />
           <KpiCard label="Avg Promo ROI" value={formatPercent(data.kpis.avgRoi)} delta={`${data.kpis.avgRoiDeltaPts > 0 ? "+" : ""}${data.kpis.avgRoiDeltaPts}pp`} deltaLabel="vs prior period" />
@@ -105,7 +111,7 @@ export default async function AnalyticsPage({
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div id="campaign-decomposition" className="grid scroll-mt-6 grid-cols-1 gap-6 lg:grid-cols-2">
           <Card>
             <CardHeader title="Joins Decomposition" subtitle="Gross joins → net retained incremental members" />
             <WaterfallChart steps={data.waterfallJoins} format="number" />
@@ -120,6 +126,58 @@ export default async function AnalyticsPage({
         <Card>
           <CardHeader title="Club Utilisation Heatmap" subtitle="Weekly day/hour utilisation · click a day to see its hourly curve" />
           <UtilizationHeatmap data={data.heatmap} />
+        </Card>
+
+        {/* Mechanic x Club matrix */}
+        <Card id="mechanic-club-matrix" className="scroll-mt-6" padded={false}>
+          <div className="p-6 pb-0">
+            <CardHeader title="Mechanic × Club Performance" subtitle="Avg. ROI by mechanic and club · Regional Ops Manager view" />
+          </div>
+          <div className="overflow-x-auto scrollbar-thin px-6 pb-6">
+            {data.mechanicClubMatrix.mechanics.length === 0 || data.mechanicClubMatrix.clubs.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted">No campaigns in scope for the current filters.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="sticky left-0 bg-card px-2 py-2 text-left text-[11px] font-semibold tracking-wide text-muted uppercase">Mechanic</th>
+                    {data.mechanicClubMatrix.clubs.map((c) => (
+                      <th key={c.id} className="px-2 py-2 text-center text-[11px] font-semibold tracking-wide text-muted uppercase whitespace-nowrap">
+                        {c.name}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.mechanicClubMatrix.mechanics.map((m) => (
+                    <tr key={m.id} className="border-t border-border">
+                      <td className="sticky left-0 bg-card px-2 py-2 font-medium whitespace-nowrap text-slate-700">{m.name}</td>
+                      {data.mechanicClubMatrix.clubs.map((c) => {
+                        const cell = data.mechanicClubMatrix.cells[`${m.id}:${c.id}`];
+                        return (
+                          <td key={c.id} className="px-2 py-2 text-center">
+                            {cell ? (
+                              <span
+                                className={cn(
+                                  "inline-block min-w-14 rounded-md px-2 py-1 text-xs font-semibold",
+                                  cell.roi >= 25 ? "bg-accent-soft text-accent-dark" : cell.roi >= 8 ? "bg-warning-soft text-warning" : "bg-critical-soft text-critical",
+                                )}
+                                title={`${cell.count} campaign${cell.count === 1 ? "" : "s"} · ${formatGBP(cell.spend, { compact: true })} spend`}
+                              >
+                                {Math.round(cell.roi)}%
+                              </span>
+                            ) : (
+                              <span className="text-muted-light">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </Card>
 
         {/* Mechanic performance + Club rankings */}

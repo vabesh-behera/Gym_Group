@@ -1,12 +1,14 @@
 {
-  "name": "gymiq-scaffold",
+  "name": "gymiq",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "postinstall": "prisma generate",
+    "build": "prisma migrate deploy && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "prisma db seed"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

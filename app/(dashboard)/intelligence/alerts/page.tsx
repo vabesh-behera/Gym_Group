@@ -55,7 +55,7 @@ export default async function AlertsPage({
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/15">🤖</div>
             <div>
-              <p className="text-sm font-bold">GymIQ Monitoring Agent</p>
+              <p className="text-sm font-bold">PromoIQ Monitoring Agent</p>
               <p className="text-xs text-white/60">
                 Active · last scan {formatDateTime(lastScan)} · {data.clubsInScope} clubs · {data.regionsInScope} regions in scope
               </p>

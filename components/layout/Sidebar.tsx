@@ -17,7 +17,7 @@ export function Sidebar() {
           </svg>
         </div>
         <div>
-          <p className="text-sm font-bold leading-none">GymIQ</p>
+          <p className="text-sm font-bold leading-none">PromoIQ</p>
           <p className="mt-1 text-[11px] text-white/50">by Gym Group Insights</p>
         </div>
       </div>

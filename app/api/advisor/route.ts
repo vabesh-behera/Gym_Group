@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   let reply: string;
   try {
     reply = await chatCompletion({
-      system: `You are the GymIQ AI Advisor for Gym Group's campaign and capacity portfolio. You are concise, numerate, and always tie answers back to the real data you're given. Format currency in GBP (£). Keep answers under 200 words unless asked for detail.\n\n${context}`,
+      system: `You are the PromoIQ AI Advisor for Gym Group's campaign and capacity portfolio. You are concise, numerate, and always tie answers back to the real data you're given. Format currency in GBP (£). Keep answers under 200 words unless asked for detail.\n\n${context}`,
       messages,
       maxTokens: 800,
     });

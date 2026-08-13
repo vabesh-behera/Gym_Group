@@ -26,7 +26,7 @@ export async function buildAdvisorContext(): Promise<string> {
   const clubLines = clubs.map((c) => `- ${c.name} (${c.region.name}) — peak capacity ${c.peakCapacity}`).join("\n");
   const mechanicLines = mechanics.map((m) => `- ${m.name} (${m.category}): ${m.howItWorks} — objective: ${m.businessObjective}`).join("\n");
 
-  return `You are grounded in the following live GymIQ portfolio data for Gym Group. Use it to answer questions concretely with real numbers where possible. If something isn't in this data, say so rather than inventing figures.
+  return `You are grounded in the following live PromoIQ portfolio data for Gym Group. Use it to answer questions concretely with real numbers where possible. If something isn't in this data, say so rather than inventing figures.
 
 ## Campaigns (top 25 by predicted ROI)
 ${campaignLines || "(none)"}

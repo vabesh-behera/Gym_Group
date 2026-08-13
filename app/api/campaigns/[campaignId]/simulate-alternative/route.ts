@@ -54,7 +54,7 @@ to 1-2 sentences, written for a campaign planner.`;
       narrative: string;
     }>({
       system:
-        "You are the GymIQ AI Advisor, an expert in gym membership campaign planning. You recommend compliant, effective alternatives when a campaign simulation violates a business guardrail. Always pick a mechanic name that exactly matches one from the provided list.",
+        "You are the PromoIQ AI Advisor, an expert in gym membership campaign planning. You recommend compliant, effective alternatives when a campaign simulation violates a business guardrail. Always pick a mechanic name that exactly matches one from the provided list.",
       prompt,
       schema: SCHEMA,
     });

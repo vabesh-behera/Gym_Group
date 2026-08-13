@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "GymIQ",
+  title: "PromoIQ",
   description: "Campaign performance & capacity intelligence for Gym Group",
 };
 

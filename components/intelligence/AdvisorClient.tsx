@@ -46,9 +46,9 @@ export function AdvisorClient({ history }: { history: Message[] }) {
           <div className="card flex items-start gap-3 p-5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-dark">✨</div>
             <div>
-              <p className="font-bold text-slate-900">GymIQ AI Advisor</p>
+              <p className="font-bold text-slate-900">PromoIQ AI Advisor</p>
               <p className="mt-1 text-sm text-slate-600">
-                Hi — I&apos;m your GymIQ AI Advisor. Ask me anything about your campaigns, budget, competitors, or club
+                Hi — I&apos;m your PromoIQ AI Advisor. Ask me anything about your campaigns, budget, competitors, or club
                 capacity. Try one of the questions below to get started.
               </p>
             </div>

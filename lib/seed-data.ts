@@ -50,7 +50,7 @@ function rationale(mechanicName: string, clubName: string, objective: string, ro
 }
 
 export async function seedDatabase(log: (msg: string) => void = console.log) {
-  log("Seeding GymIQ demo data…");
+  log("Seeding PromoIQ demo data…");
 
   // ---- User ----
   const passwordHash = await bcrypt.hash(DEMO_PASSWORD, 10);

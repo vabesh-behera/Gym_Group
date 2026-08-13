@@ -21,6 +21,37 @@ const COLOR: Record<WaterfallStep["kind"], string> = {
   end: "#0b1b2e",
 };
 
+function wrapLabel(label: string, maxCharsPerLine = 13): string[] {
+  const words = label.split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length > maxCharsPerLine && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+function WrappedTick({ x = 0, y = 0, payload }: { x?: number; y?: number; payload?: { value: string } }) {
+  if (!payload) return null;
+  const lines = wrapLabel(payload.value);
+  return (
+    <g transform={`translate(${x},${y})`}>
+      {lines.map((line, i) => (
+        <text key={i} x={0} y={0} dy={14 + i * 13} textAnchor="middle" fontSize={11} fill="#64748b">
+          {line}
+        </text>
+      ))}
+    </g>
+  );
+}
+
 function buildBars(steps: WaterfallStep[], valueFormatter: (v: number) => string) {
   let running = 0;
   return steps.map((step) => {
@@ -39,10 +70,10 @@ export function WaterfallChart({ steps, format }: { steps: WaterfallStep[]; form
   const bars = buildBars(steps, valueFormatter);
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
-      <BarChart data={bars} margin={{ top: 24, right: 16, left: -8, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={bars} margin={{ top: 24, right: 16, left: -8, bottom: 12 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e5e9f0" vertical={false} />
-        <XAxis dataKey="label" tick={{ fontSize: 11.5, fill: "#64748b" }} axisLine={{ stroke: "#e5e9f0" }} tickLine={false} interval={0} />
+        <XAxis dataKey="label" tick={<WrappedTick />} height={40} axisLine={{ stroke: "#e5e9f0" }} tickLine={false} interval={0} />
         <YAxis tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} tickFormatter={valueFormatter} />
         <Tooltip
           contentStyle={{ borderRadius: 10, border: "1px solid #e5e9f0", fontSize: 13 }}

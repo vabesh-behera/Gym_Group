@@ -43,8 +43,8 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: { payl
 
 export function BubbleChart({ data }: { data: BubblePoint[] }) {
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <ScatterChart margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
+    <ResponsiveContainer width="100%" height={340}>
+      <ScatterChart margin={{ top: 8, right: 16, left: 12, bottom: 28 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e5e9f0" />
         <XAxis
           type="number"
@@ -54,7 +54,7 @@ export function BubbleChart({ data }: { data: BubblePoint[] }) {
           axisLine={{ stroke: "#e5e9f0" }}
           tickLine={false}
           tickFormatter={(v: number) => `£${(v / 1000).toFixed(0)}K`}
-          label={{ value: "Campaign investment", position: "insideBottom", offset: -4, fontSize: 12, fill: "#64748b" }}
+          label={{ value: "Campaign investment", position: "bottom", offset: 8, fontSize: 12, fill: "#64748b" }}
         />
         <YAxis
           type="number"
@@ -64,7 +64,7 @@ export function BubbleChart({ data }: { data: BubblePoint[] }) {
           axisLine={false}
           tickLine={false}
           tickFormatter={(v: number) => `£${(v / 1000).toFixed(0)}K`}
-          label={{ value: "Incremental revenue", angle: -90, position: "insideLeft", fontSize: 12, fill: "#64748b" }}
+          label={{ value: "Incremental revenue", angle: -90, position: "insideLeft", offset: -4, style: { textAnchor: "middle" }, fontSize: 12, fill: "#64748b" }}
         />
         <ZAxis type="number" dataKey="netRetainedJoins" range={[80, 900]} name="Net retained joins" />
         <Tooltip content={<CustomTooltip />} cursor={{ strokeDasharray: "3 3" }} />

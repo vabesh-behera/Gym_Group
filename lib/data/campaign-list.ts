@@ -7,6 +7,7 @@ export async function getCampaignDecompositionList(filters: AnalyticsFilters) {
     status: { in: ["ACTIVE", "COMPLETED"] as CampaignStatus[] },
     ...(filters.regionId ? { regionId: filters.regionId } : {}),
     ...(filters.clubId ? { clubId: filters.clubId } : {}),
+    ...(filters.catchmentArea ? { club: { catchmentArea: filters.catchmentArea } } : {}),
     ...(filters.audienceType ? { audienceType: filters.audienceType as AudienceType } : {}),
     ...(filters.mechanicId ? { mechanicId: filters.mechanicId } : {}),
     ...(filters.objective ? { objective: filters.objective as CampaignObjective } : {}),

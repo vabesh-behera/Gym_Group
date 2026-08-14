@@ -9,11 +9,13 @@ type Option = { label: string; value: string };
 export function FilterBar({
   regions,
   clubs,
+  catchmentAreas,
   mechanics,
   audiences,
 }: {
   regions: Option[];
   clubs: Option[];
+  catchmentAreas: Option[];
   mechanics: Option[];
   audiences: Option[];
 }) {
@@ -35,6 +37,7 @@ export function FilterBar({
       <span className="mr-1 text-[11px] font-semibold tracking-wide text-muted uppercase">Filters</span>
       <Select label="All Regions" options={regions} defaultValue={searchParams.get("region") ?? ""} onChange={(e) => setParam("region", e.target.value)} />
       <Select label="All Clubs" options={clubs} defaultValue={searchParams.get("club") ?? ""} onChange={(e) => setParam("club", e.target.value)} />
+      <Select label="All Catchment Areas" options={catchmentAreas} defaultValue={searchParams.get("catchment") ?? ""} onChange={(e) => setParam("catchment", e.target.value)} />
       <Select label="All Audiences" options={audiences} defaultValue={searchParams.get("audience") ?? ""} onChange={(e) => setParam("audience", e.target.value)} />
       <Select label="All Mechanics" options={mechanics} defaultValue={searchParams.get("mechanic") ?? ""} onChange={(e) => setParam("mechanic", e.target.value)} />
       <Select label="All Objectives" options={objectiveOptions} defaultValue={searchParams.get("objective") ?? ""} onChange={(e) => setParam("objective", e.target.value)} />

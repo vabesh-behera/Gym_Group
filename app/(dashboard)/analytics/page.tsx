@@ -69,14 +69,20 @@ export default async function AnalyticsPage({
           </div>
         }
       />
-      <FilterBar regions={options.regions} clubs={options.clubs} mechanics={options.mechanics} audiences={options.audiences} />
+      <FilterBar
+        regions={options.regions}
+        clubs={options.clubs}
+        catchmentAreas={options.catchmentAreas}
+        mechanics={options.mechanics}
+        audiences={options.audiences}
+      />
 
       <div className="space-y-6 px-8 py-6">
         {/* Persona view switcher */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <PersonaCard href={viewHref("portfolio")} active={view === "portfolio"} icon="📊" title="Portfolio Health" subtitle="Senior Leadership" />
-          <PersonaCard href={viewHref("club")} active={view === "club"} icon="🏢" title="Mechanic × Club" subtitle="Regional Ops Manager" />
-          <PersonaCard href={viewHref("decomposition")} active={view === "decomposition"} icon="🧩" title="Campaign Decomposition" subtitle="Marketing / Planner" />
+          <PersonaCard href={viewHref("portfolio")} active={view === "portfolio"} icon="📊" title="Portfolio Health" />
+          <PersonaCard href={viewHref("club")} active={view === "club"} icon="🏢" title="Mechanic × Club" />
+          <PersonaCard href={viewHref("decomposition")} active={view === "decomposition"} icon="🧩" title="Campaign Decomposition" />
         </div>
 
         {view === "club" && focusClub && <ClubDrilldown clubId={focusClub} filters={filters} clubOptions={options.clubs} />}
@@ -87,15 +93,12 @@ export default async function AnalyticsPage({
   );
 }
 
-function PersonaCard({ href, active, icon, title, subtitle }: { href: string; active: boolean; icon: string; title: string; subtitle: string }) {
+function PersonaCard({ href, active, icon, title }: { href: string; active: boolean; icon: string; title: string }) {
   return (
     <Link href={href} className="block">
       <Card className={cn("flex items-center gap-3 transition", active ? "bg-navy text-white" : "hover:bg-slate-50")} padded>
         <div className={cn("flex h-10 w-10 items-center justify-center rounded-lg", active ? "bg-white/15" : "bg-slate-100")}>{icon}</div>
-        <div>
-          <p className={cn("text-sm font-bold", active ? "text-white" : "text-slate-900")}>{title}</p>
-          <p className={cn("text-xs", active ? "text-white/60" : "text-muted")}>{subtitle}</p>
-        </div>
+        <p className={cn("text-sm font-bold", active ? "text-white" : "text-slate-900")}>{title}</p>
       </Card>
     </Link>
   );
@@ -165,7 +168,7 @@ async function PortfolioView({ data, filters }: { data: Awaited<ReturnType<typeo
       {/* Mechanic x Club matrix */}
       <Card className="mt-6" padded={false}>
         <div className="p-6 pb-0">
-          <CardHeader title="Mechanic × Club Performance" subtitle="Avg. ROI by mechanic and club · Regional Ops Manager view" />
+          <CardHeader title="Mechanic × Club Performance" subtitle="Avg. ROI by mechanic and club" />
         </div>
         <div className="overflow-x-auto scrollbar-thin px-6 pb-6">
           {data.mechanicClubMatrix.mechanics.length === 0 || data.mechanicClubMatrix.clubs.length === 0 ? (

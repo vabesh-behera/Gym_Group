@@ -7,6 +7,7 @@ export type AnalyticsFilters = {
   catchmentArea?: string;
   audienceType?: string;
   mechanicId?: string;
+  mechanicCategory?: "ACQUISITION" | "UTILISATION";
   objective?: string;
   period: "FY2025" | "FY2026";
 };
@@ -16,12 +17,14 @@ export function parseFilters(searchParams: Record<string, string | string[] | un
     const v = searchParams[key];
     return Array.isArray(v) ? v[0] : v;
   };
+  const category = get("category");
   return {
     regionId: get("region") || undefined,
     clubId: get("club") || undefined,
     catchmentArea: get("catchment") || undefined,
     audienceType: get("audience") || undefined,
     mechanicId: get("mechanic") || undefined,
+    mechanicCategory: category === "ACQUISITION" || category === "UTILISATION" ? category : undefined,
     objective: get("objective") || undefined,
     period: (get("period") as "FY2025" | "FY2026") || "FY2026",
   };

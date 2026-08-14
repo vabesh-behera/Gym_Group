@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { AnalyticsFilters } from "@/lib/data/filters";
-import type { CampaignStatus } from "../../generated/prisma/enums";
+import type { CampaignStatus, MechanicCategory } from "../../generated/prisma/enums";
 
 const SEASONS = [
   { name: "New Year Reset", months: [0, 1] },
@@ -18,6 +18,7 @@ export async function getClubDrilldown(clubId: string, filters: AnalyticsFilters
     clubId,
     status: { in: ["ACTIVE", "COMPLETED"] as CampaignStatus[] },
     ...(filters.mechanicId ? { mechanicId: filters.mechanicId } : {}),
+    ...(filters.mechanicCategory ? { mechanic: { category: filters.mechanicCategory as MechanicCategory } } : {}),
     ...(filters.audienceType ? { audienceType: filters.audienceType as never } : {}),
   };
 

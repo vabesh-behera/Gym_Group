@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import type { AudienceType, CampaignObjective, CampaignStatus } from "../../generated/prisma/enums";
+import type { AudienceType, CampaignObjective, CampaignStatus, MechanicCategory } from "../../generated/prisma/enums";
 import type { AnalyticsFilters } from "@/lib/data/filters";
 import { seededRange } from "@/lib/rand";
 import { AVG_MONTHLY_FEE_GBP } from "@/lib/simulate/elasticity";
@@ -40,6 +40,7 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     ...(filters.catchmentArea ? { club: { catchmentArea: filters.catchmentArea } } : {}),
     ...(filters.audienceType ? { audienceType: filters.audienceType as AudienceType } : {}),
     ...(filters.mechanicId ? { mechanicId: filters.mechanicId } : {}),
+    ...(filters.mechanicCategory ? { mechanic: { category: filters.mechanicCategory as MechanicCategory } } : {}),
     ...(filters.objective ? { objective: filters.objective as CampaignObjective } : {}),
   };
 
@@ -58,6 +59,7 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
           ...(filters.clubId ? { clubId: filters.clubId } : {}),
           ...(filters.regionId ? { club: { regionId: filters.regionId } } : {}),
           ...(filters.catchmentArea ? { club: { catchmentArea: filters.catchmentArea } } : {}),
+          ...(filters.mechanicCategory ? { campaign: { mechanic: { category: filters.mechanicCategory as MechanicCategory } } } : {}),
         },
         include: { club: true },
       }),
@@ -69,6 +71,7 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
           ...(filters.clubId ? { clubId: filters.clubId } : {}),
           ...(filters.regionId ? { club: { regionId: filters.regionId } } : {}),
           ...(filters.catchmentArea ? { club: { catchmentArea: filters.catchmentArea } } : {}),
+          ...(filters.mechanicCategory ? { campaign: { mechanic: { category: filters.mechanicCategory as MechanicCategory } } } : {}),
         },
       }),
       prisma.club.findMany({

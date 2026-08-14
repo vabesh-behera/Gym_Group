@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { AnalyticsFilters } from "@/lib/data/filters";
-import type { AudienceType, CampaignObjective, CampaignStatus } from "../../generated/prisma/enums";
+import type { AudienceType, CampaignObjective, CampaignStatus, MechanicCategory } from "../../generated/prisma/enums";
 
 export async function getCampaignDecompositionList(filters: AnalyticsFilters) {
   const where = {
@@ -10,6 +10,7 @@ export async function getCampaignDecompositionList(filters: AnalyticsFilters) {
     ...(filters.catchmentArea ? { club: { catchmentArea: filters.catchmentArea } } : {}),
     ...(filters.audienceType ? { audienceType: filters.audienceType as AudienceType } : {}),
     ...(filters.mechanicId ? { mechanicId: filters.mechanicId } : {}),
+    ...(filters.mechanicCategory ? { mechanic: { category: filters.mechanicCategory as MechanicCategory } } : {}),
     ...(filters.objective ? { objective: filters.objective as CampaignObjective } : {}),
   };
 

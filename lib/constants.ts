@@ -111,6 +111,23 @@ export const MECHANICS_SEED = [
   },
 ];
 
+// Single source of truth for which campaign objectives a mechanic can serve —
+// used both to seed realistic campaigns and to keep the Analytics filter bar's
+// Mechanic/Objective dropdowns scoped to the selected Acquisition/Utilisation
+// category (rather than listing every mechanic under every category).
+export const OBJECTIVES_FOR_MECHANIC: Record<string, string[]> = {
+  "£0 Joining Fee": ["MAXIMISE_INCREMENTAL_JOINS", "DEFEND_SITE_AGAINST_COMPETITOR"],
+  "First Month 50% Off": ["MAXIMISE_INCREMENTAL_JOINS"],
+  "Free First Week / Trial Pass": ["MAXIMISE_INCREMENTAL_JOINS", "SUPPORT_NEW_OR_REFURBISHED_GYM"],
+  "Student Membership Offer": ["MAXIMISE_INCREMENTAL_JOINS"],
+  "Corporate Membership Programme": ["MAXIMISE_INCREMENTAL_JOINS", "IMPROVE_MEMBER_LIFETIME_CONTRIBUTION"],
+  "Friend Referral Reward": ["IMPROVE_MEMBER_LIFETIME_CONTRIBUTION"],
+  "Off-Peak Membership": ["FILL_OFF_PEAK_CAPACITY"],
+  "Daytime Access Pass": ["FILL_OFF_PEAK_CAPACITY"],
+  "Weekend Membership": ["FILL_OFF_PEAK_CAPACITY"],
+  "Gym Upgrade Bundle": ["IMPROVE_MEMBER_LIFETIME_CONTRIBUTION", "REACTIVATE_DORMANT_MEMBERS"],
+};
+
 export const REGION_NAMES = ["London & South East", "Midlands", "North & Scotland"];
 
 // Real The Gym Group UK site names (verified via web search), grouped into

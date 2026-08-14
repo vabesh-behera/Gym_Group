@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 
 import { prisma } from "./prisma";
-import { REGION_NAMES, CLUB_SEED, MECHANICS_SEED, OBJECTIVE_LABELS } from "./constants";
+import { REGION_NAMES, CLUB_SEED, MECHANICS_SEED, OBJECTIVE_LABELS, OBJECTIVES_FOR_MECHANIC } from "./constants";
 import { simulateCampaign, AVG_MONTHLY_FEE_GBP } from "./simulate/elasticity";
 import { seededRandom, seededRange } from "./rand";
 
@@ -23,19 +23,6 @@ const AUDIENCE_FOR_MECHANIC: Record<string, string[]> = {
   "Daytime Access Pass": ["HYBRID_WORKER"],
   "Weekend Membership": ["GENERAL"],
   "Gym Upgrade Bundle": ["ENGAGED_MEMBER"],
-};
-
-const OBJECTIVE_FOR_MECHANIC: Record<string, string[]> = {
-  "£0 Joining Fee": ["MAXIMISE_INCREMENTAL_JOINS", "DEFEND_SITE_AGAINST_COMPETITOR"],
-  "First Month 50% Off": ["MAXIMISE_INCREMENTAL_JOINS"],
-  "Free First Week / Trial Pass": ["MAXIMISE_INCREMENTAL_JOINS", "SUPPORT_NEW_OR_REFURBISHED_GYM"],
-  "Student Membership Offer": ["MAXIMISE_INCREMENTAL_JOINS"],
-  "Corporate Membership Programme": ["MAXIMISE_INCREMENTAL_JOINS", "IMPROVE_MEMBER_LIFETIME_CONTRIBUTION"],
-  "Friend Referral Reward": ["IMPROVE_MEMBER_LIFETIME_CONTRIBUTION"],
-  "Off-Peak Membership": ["FILL_OFF_PEAK_CAPACITY"],
-  "Daytime Access Pass": ["FILL_OFF_PEAK_CAPACITY"],
-  "Weekend Membership": ["FILL_OFF_PEAK_CAPACITY"],
-  "Gym Upgrade Bundle": ["IMPROVE_MEMBER_LIFETIME_CONTRIBUTION", "REACTIVATE_DORMANT_MEMBERS"],
 };
 
 function rationale(mechanicName: string, clubName: string, objective: string, roi: number) {
@@ -226,7 +213,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     const mechanic = pick(`${seed}-mechanic`, mechanics);
     const audienceOptions = AUDIENCE_FOR_MECHANIC[mechanic.name] ?? ["GENERAL"];
     const audience = pick(`${seed}-audience`, audienceOptions);
-    const objectiveOptions = OBJECTIVE_FOR_MECHANIC[mechanic.name] ?? ["MAXIMISE_INCREMENTAL_JOINS"];
+    const objectiveOptions = OBJECTIVES_FOR_MECHANIC[mechanic.name] ?? ["MAXIMISE_INCREMENTAL_JOINS"];
     const objective = pick(`${seed}-objective`, objectiveOptions);
 
     const budget = Math.round(seededRange(`${seed}-budget`, 3000, 42000) / 500) * 500;

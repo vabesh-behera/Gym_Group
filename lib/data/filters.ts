@@ -43,7 +43,7 @@ export async function getFilterOptions() {
     regions: regions.map((r) => ({ label: r.name, value: r.id })),
     clubs: clubs.map((c) => ({ label: `${c.name} (${c.region.name})`, value: c.id })),
     catchmentAreas: catchmentAreas.map((a) => ({ label: a, value: a })),
-    mechanics: mechanics.map((m) => ({ label: m.name, value: m.id })),
+    mechanics: mechanics.map((m) => ({ label: m.name, value: m.id, category: m.category })),
     audiences: Object.entries(AUDIENCE_LABELS).map(([value, label]) => ({ label, value })),
   };
 }

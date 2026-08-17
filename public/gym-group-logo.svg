@@ -1,10 +1,10 @@
 <svg viewBox="0 0 480 190" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The Gym Group">
-  <circle cx="95" cy="95" r="90" fill="#A9CE39"/>
-  <g fill="none" stroke="#1C86C8" stroke-width="22" stroke-linecap="round">
-    <circle cx="78" cy="70" r="38"/>
-    <circle cx="114" cy="112" r="27"/>
+  <circle cx="95" cy="95" r="90" fill="#AAD22E"/>
+  <g fill="none" stroke="#2B8FD6" stroke-width="24" stroke-linecap="round">
+    <circle cx="82" cy="68" r="40"/>
+    <path d="M 120 84 C 146 100, 138 148, 92 146 C 70 145, 62 128, 68 116" />
   </g>
-  <text x="205" y="60" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="34" fill="#1C86C8">the</text>
-  <text x="200" y="113" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="56" fill="#1C86C8">gym</text>
-  <text x="200" y="166" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="56" fill="#1C86C8">group</text>
+  <text x="205" y="60" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="34" fill="#2B8FD6">the</text>
+  <text x="200" y="113" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="56" fill="#2B8FD6">gym</text>
+  <text x="200" y="166" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="56" fill="#2B8FD6">group</text>
 </svg>

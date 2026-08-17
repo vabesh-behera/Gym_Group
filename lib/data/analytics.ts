@@ -294,10 +294,59 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     { successful: 0, mixed: 0, failed: 0 },
   );
 
+  // Per-campaign incrementality: acquisition mechanics skew higher (they target
+  // genuine non-members), deeper discounts skew lower (more "would've joined
+  // anyway" bargain hunters). Deterministic (seeded by campaign id) so it's
+  // stable across reloads, and computed for every campaign so the three tiers
+  // below always sum to the full campaign count.
+  const campaignIncrementality = campaigns.map((c) => {
+    const base = c.mechanic.category === "ACQUISITION" ? 62 : 46;
+    const depthPenalty = (c.incentiveValue / 100) * 20;
+    const noise = seededRange(`incrementality-${c.id}`, -12, 12);
+    const pct = Math.max(5, Math.min(95, Math.round(base - depthPenalty + noise)));
+    return { campaign: c, pct };
+  });
+
+  const INCREMENTALITY_TIERS = [
+    { key: "high", label: "High (>60%)", tone: "high" as const, test: (p: number) => p > 60 },
+    { key: "medium", label: "Medium (40–60%)", tone: "solid" as const, test: (p: number) => p >= 40 && p <= 60 },
+    { key: "low", label: "Low (<40%)", tone: "under" as const, test: (p: number) => p < 40 },
+  ];
+  const incrementalityTiers = INCREMENTALITY_TIERS.map((tier) => {
+    const inTier = campaignIncrementality.filter((ci) => tier.test(ci.pct));
+    return {
+      key: tier.key,
+      label: tier.label,
+      tone: tier.tone,
+      count: inTier.length,
+      sharePct: totalCampaigns > 0 ? Math.round((inTier.length / totalCampaigns) * 1000) / 10 : 0,
+    };
+  });
+
+  const failedSpend = campaigns.filter((c) => roiOf(c) < 0).reduce((s, c) => s + c.budget, 0);
+  const failedPct = totalCampaigns > 0 ? Math.round((classification.failed / totalCampaigns) * 100) : 0;
+
+  const highTierCampaigns = campaignIncrementality.filter((ci) => ci.pct > 60);
+  const restCampaigns = campaignIncrementality.filter((ci) => ci.pct <= 60);
+  const failureRate = (group: typeof campaignIncrementality) =>
+    group.length > 0 ? (group.filter((ci) => roiOf(ci.campaign) < 0).length / group.length) * 100 : 0;
+  const highFailureRate = failureRate(highTierCampaigns);
+  const restFailureRate = failureRate(restCampaigns);
+  const relativeImprovementPct = restFailureRate > 0 ? Math.round(((restFailureRate - highFailureRate) / restFailureRate) * 100) : 0;
+  const learning =
+    highTierCampaigns.length > 0 && relativeImprovementPct > 0
+      ? `Campaigns with high incrementality (>60%) had ${relativeImprovementPct}% lower failure rates. Focus future planning on mechanics that drive true incremental volume.`
+      : `Failure rate doesn't yet correlate cleanly with incrementality in the current filter scope — widen the date range or clear filters for a stronger signal.`;
+
   const incrementalityAchieved = {
     netRetainedMembers: netRetainedIncrementalMembers,
     incrementalRevenue: retainedIncrementalRevenue,
     incrementalityPct: joins.length > 0 ? Math.round((incrementalJoins.length / joins.length) * 1000) / 10 : 0,
+    tiers: incrementalityTiers,
+    failedCount: classification.failed,
+    failedPct,
+    failedSpend,
+    learning,
   };
 
   return {

@@ -23,6 +23,8 @@ const TIER_STYLE: Record<Tier["tone"], { border: string; bg: string; text: strin
   negative: { border: "border-critical/30", bg: "bg-critical-soft", text: "text-critical", bar: "bg-critical" },
 };
 
+type IncrementalityTier = { key: string; label: string; tone: "high" | "solid" | "under"; count: number; sharePct: number };
+
 export function CampaignAnalysisModal({
   closeHref,
   totalCampaigns,
@@ -38,7 +40,13 @@ export function CampaignAnalysisModal({
   scopeLabel: string;
   roiTiers: Tier[];
   classification: { successful: number; mixed: number; failed: number };
-  incrementality: { netRetainedMembers: number; incrementalRevenue: number; incrementalityPct: number };
+  incrementality: {
+    tiers: IncrementalityTier[];
+    failedCount: number;
+    failedPct: number;
+    failedSpend: number;
+    learning: string;
+  };
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const router = useRouter();
@@ -151,19 +159,30 @@ export function CampaignAnalysisModal({
 
           <h3 className="mt-6 mb-2 text-sm font-bold text-slate-900">Incrementality Achieved</h3>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-border p-4">
-              <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">Net Retained Incremental Members</p>
-              <p className="mt-1 text-xl font-bold text-slate-900">{formatNumber(incrementality.netRetainedMembers)}</p>
-            </div>
-            <div className="rounded-xl border border-border p-4">
-              <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">Incremental Revenue</p>
-              <p className="mt-1 text-xl font-bold text-slate-900">{formatGBP(incrementality.incrementalRevenue, { compact: true })}</p>
-            </div>
-            <div className="rounded-xl border border-border p-4">
-              <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">Incrementality</p>
-              <p className="mt-1 text-xl font-bold text-slate-900">{incrementality.incrementalityPct}%</p>
-              <p className="mt-0.5 text-xs text-muted">of gross joins were genuinely incremental</p>
-            </div>
+            {incrementality.tiers.map((tier) => {
+              const style = TIER_STYLE[tier.tone];
+              return (
+                <div key={tier.key} className="rounded-xl border border-border bg-slate-50 p-4">
+                  <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">{tier.label}</p>
+                  <p className="mt-1 text-xl font-bold text-slate-900">{tier.count}</p>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white">
+                    <div className={cn("h-full rounded-full", style.bar)} style={{ width: `${Math.max(2, tier.sharePct)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 rounded-xl border border-info/20 bg-info-soft p-4 text-sm text-info">
+            <span className="font-bold">Key Finding: </span>
+            {incrementality.failedCount > 0
+              ? `${incrementality.failedCount} campaign${incrementality.failedCount === 1 ? "" : "s"} (${incrementality.failedPct}%) resulted in losses, representing ${formatGBP(incrementality.failedSpend, { compact: true })} in inefficient spend.`
+              : "No campaigns resulted in a loss in the current filter scope — every campaign delivered a positive return."}
+          </div>
+
+          <div className="mt-3 rounded-xl border border-accent/20 bg-accent-soft p-4 text-sm text-accent-dark">
+            <span className="font-bold">Learning: </span>
+            {incrementality.learning}
           </div>
         </div>
       </div>

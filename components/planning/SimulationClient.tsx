@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/Select";
 import { simulateCampaign } from "@/lib/simulate/elasticity";
 import { formatGBP, formatNumber } from "@/lib/format";
 import { OBJECTIVE_LABELS } from "@/lib/constants";
-import { applySimulation } from "@/app/(dashboard)/planning/simulate/[campaignId]/actions";
+import { applySimulation } from "@/app/(dashboard)/planning/simulate/actions";
 import { cn } from "@/lib/cn";
 
 type Mechanic = { id: string; name: string; category: "ACQUISITION" | "UTILISATION" };

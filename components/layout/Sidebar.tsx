@@ -8,6 +8,14 @@ import { NAV_ICONS, GearIcon } from "@/components/layout/Icons";
 export function Sidebar() {
   const pathname = usePathname();
 
+  // Pick the single longest-matching href across all nav items so a nested
+  // route (e.g. /planning/simulate) doesn't also light up its parent
+  // (/planning) via a naive prefix match.
+  const allHrefs = NAV_SECTIONS.flatMap((s) => s.items.map((i) => i.href));
+  const bestMatch = allHrefs
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
+
   return (
     <aside className="flex h-screen w-64 shrink-0 flex-col bg-navy text-white">
       <div className="flex items-center gap-3 px-5 py-5">
@@ -40,7 +48,7 @@ export function Sidebar() {
             </p>
             {section.items.map((item) => {
               const Icon = NAV_ICONS[item.icon];
-              const active = pathname.startsWith(item.href);
+              const active = item.href === bestMatch;
               return (
                 <Link
                   key={item.href}

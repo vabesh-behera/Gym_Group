@@ -12,9 +12,8 @@ export function CampaignActions({ campaignId }: { campaignId: string }) {
 
   function openSimulation() {
     const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", "simulate");
     params.set("campaignId", campaignId);
-    router.push(`/planning?${params.toString()}`);
+    router.push(`/planning/simulate?${params.toString()}`);
   }
 
   return (

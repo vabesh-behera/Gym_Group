@@ -5,7 +5,10 @@ export const NAV_SECTIONS = [
   },
   {
     label: "Planning",
-    items: [{ label: "Planning", href: "/planning", icon: "calendar" as const }],
+    items: [
+      { label: "Planning", href: "/planning", icon: "calendar" as const },
+      { label: "Simulation", href: "/planning/simulate", icon: "sliders" as const },
+    ],
   },
   {
     label: "Execution",

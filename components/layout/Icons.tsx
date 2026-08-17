@@ -54,6 +54,17 @@ export function MailIcon({ className }: IconProps) {
   );
 }
 
+export function SlidersIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h13M21 18h-1" strokeLinecap="round" />
+      <circle cx="14" cy="6" r="2" />
+      <circle cx="8" cy="12" r="2" />
+      <circle cx="18" cy="18" r="2" />
+    </svg>
+  );
+}
+
 export function GearIcon({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -78,6 +89,7 @@ export function ChevronIcon({ className }: IconProps) {
 export const NAV_ICONS = {
   chart: ChartIcon,
   calendar: CalendarIcon,
+  sliders: SlidersIcon,
   pulse: PulseIcon,
   sparkles: SparklesIcon,
   alert: AlertIcon,

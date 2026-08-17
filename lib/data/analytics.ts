@@ -5,7 +5,7 @@ import { seededRange } from "@/lib/rand";
 import { AVG_MONTHLY_FEE_GBP } from "@/lib/simulate/elasticity";
 import type { TrendPoint } from "@/components/charts/TrendChart";
 import type { BubblePoint } from "@/components/charts/BubbleChart";
-import type { WaterfallStep } from "@/components/charts/WaterfallChart";
+import type { IncrementalityStep } from "@/components/charts/IncrementalityChart";
 import type { UtilPoint } from "@/components/charts/UtilizationHeatmap";
 
 const TODAY = new Date("2026-08-13T23:59:59Z");
@@ -44,7 +44,7 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     ...(filters.objective ? { objective: filters.objective as CampaignObjective } : {}),
   };
 
-  const [campaigns, priorCampaigns, memberEvents, priorMemberEvents, clubs, portfolioMetrics, mechanics, regions] =
+  const [campaigns, priorCampaigns, memberEvents, priorMemberEvents, clubs, portfolioMetrics, mechanics] =
     await Promise.all([
       prisma.campaign.findMany({
         where: { ...campaignWhere, startDate: { gte: start, lte: end } },
@@ -84,7 +84,6 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
       }),
       prisma.portfolioMonthlyMetric.findMany({ orderBy: { month: "asc" } }),
       prisma.mechanic.findMany(),
-      prisma.region.findMany(),
     ]);
 
   // ---- KPIs ----
@@ -161,29 +160,28 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     };
   });
 
-  // ---- Waterfalls ----
+  // ---- Combined incrementality + member value waterfall ----
+  // A single revenue-per-member figure applied consistently across every
+  // stage guarantees the £ values reconcile exactly the same way the member
+  // counts already do (gross - baseline - churn = retained), instead of the
+  // two figures coming from unrelated models.
   const grossJoins = joins.length;
   const nonIncremental = grossJoins - incrementalJoins.length;
   const churn = memberEvents.filter((e) => e.type === "CHURN").length;
-  const netRetained = Math.max(0, incrementalJoins.length - Math.round(churn * 0.35));
+  const earlyChurnCount = Math.round(churn * 0.35);
+  const netRetained = Math.max(0, incrementalJoins.length - earlyChurnCount);
 
-  const waterfallJoins: WaterfallStep[] = [
-    { label: "Gross Joins", delta: grossJoins, kind: "start" },
-    { label: "Would've Joined Anyway", delta: -nonIncremental, kind: "decrease" },
-    { label: "Early Cancellations", delta: -Math.round(churn * 0.35), kind: "decrease" },
-    { label: "Net Retained Incremental", delta: netRetained, kind: "end" },
-  ];
+  const revenuePerMember = AVG_MONTHLY_FEE_GBP * avgRetentionMonths;
+  const grossResponseRevenue = Math.round(grossJoins * revenuePerMember);
+  const baselineRevenue = Math.round(nonIncremental * revenuePerMember);
+  const earlyChurnRevenue = Math.round(earlyChurnCount * revenuePerMember);
+  const retainedIncrementalRevenue = grossResponseRevenue - baselineRevenue - earlyChurnRevenue;
 
-  const grossRevenue = Math.round(joins.length * AVG_MONTHLY_FEE_GBP * avgRetentionMonths);
-  const discountCost = Math.round(totalInvestment * 0.55);
-  const cannibalised = Math.round(grossRevenue * 0.08);
-  const incrementalContribution = Math.max(0, grossRevenue - discountCost - cannibalised);
-
-  const waterfallRevenue: WaterfallStep[] = [
-    { label: "Gross Campaign Revenue", delta: grossRevenue, kind: "start" },
-    { label: "Discount Cost", delta: -discountCost, kind: "decrease" },
-    { label: "Cannibalised Revenue", delta: -cannibalised, kind: "decrease" },
-    { label: "Incremental Contribution", delta: incrementalContribution, kind: "end" },
+  const incrementalityWaterfall: IncrementalityStep[] = [
+    { label: "Gross Campaign Response", joinsDelta: grossJoins, revenueDelta: grossResponseRevenue, kind: "start" },
+    { label: "Baseline", joinsDelta: -nonIncremental, revenueDelta: -baselineRevenue, kind: "decrease" },
+    { label: "Early Churn Impact", joinsDelta: -earlyChurnCount, revenueDelta: -earlyChurnRevenue, kind: "decrease" },
+    { label: "Retained Incremental Value", joinsDelta: netRetained, revenueDelta: retainedIncrementalRevenue, kind: "end" },
   ];
 
   // ---- Heatmap ----
@@ -224,29 +222,6 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     .filter((m): m is NonNullable<typeof m> => m !== null)
     .sort((a, b) => b.roiPct - a.roiPct);
 
-  // ---- Mechanic x Club matrix ----
-  const mechanicClubMatrix = {
-    mechanics: mechanics
-      .filter((m) => campaigns.some((c) => c.mechanicId === m.id))
-      .map((m) => ({ id: m.id, name: m.name }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    clubs: clubs
-      .filter((c) => campaigns.some((camp) => camp.clubId === c.id))
-      .map((c) => ({ id: c.id, name: c.name }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    cells: campaigns.reduce<Record<string, { roi: number; count: number; spend: number }>>((acc, c) => {
-      if (!c.clubId) return acc;
-      const key = `${c.mechanicId}:${c.clubId}`;
-      const existing = acc[key] ?? { roi: 0, count: 0, spend: 0 };
-      acc[key] = {
-        roi: (existing.roi * existing.count + c.predictedRoi) / (existing.count + 1),
-        count: existing.count + 1,
-        spend: existing.spend + c.budget,
-      };
-      return acc;
-    }, {}),
-  };
-
   // ---- Club rankings ----
   const clubRankings = clubs
     .map((c) => {
@@ -272,19 +247,6 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     .sort((a, b) => b.roi - a.roi)
     .map((c, i) => ({ ...c, rank: i + 1 }));
 
-  // ---- Region contribution ----
-  const regionContribution = regions
-    .map((r) => {
-      const rCampaigns = campaigns.filter((c) => c.regionId === r.id || c.club?.regionId === r.id);
-      const revenue = rCampaigns.reduce((s, c) => s + Math.round(c.budget * (1 + c.predictedRoi / 100)), 0);
-      return { id: r.id, name: r.name, revenue };
-    })
-    .filter((r) => r.revenue > 0);
-  const totalRegionRevenue = regionContribution.reduce((s, r) => s + r.revenue, 0);
-  const regionContributionWithShare = regionContribution
-    .map((r) => ({ ...r, sharePct: totalRegionRevenue > 0 ? Math.round((r.revenue / totalRegionRevenue) * 1000) / 10 : 0 }))
-    .sort((a, b) => b.revenue - a.revenue);
-
   // ---- Scale / optimize / stop ----
   const campaignRecommendations = campaigns
     .map((c) => ({
@@ -302,13 +264,10 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     kpis,
     trend,
     bubblePoints,
-    waterfallJoins,
-    waterfallRevenue,
-    mechanicClubMatrix,
+    incrementalityWaterfall,
     heatmap,
     mechanicPerformance,
     clubRankings,
-    regionContribution: regionContributionWithShare,
     campaignRecommendations,
   };
 }

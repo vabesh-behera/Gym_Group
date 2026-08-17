@@ -4,12 +4,20 @@
 
 export const AVG_MONTHLY_FEE_GBP = 34.99;
 export const BASE_RETENTION_MONTHS = 9;
-// Near-term revenue window used for ROI attribution — campaign performance is
-// measured on revenue during/shortly after the promo, not full member lifetime
-// (which is reported separately via predictedRetentionMonths/Pct).
-const REVENUE_ATTRIBUTION_MONTHS = 1.6;
 
 export type MechanicCategory = "ACQUISITION" | "UTILISATION";
+
+// Near-term revenue window used for ROI attribution — campaign performance is
+// measured on revenue during/shortly after the promo, not full member lifetime
+// (which is reported separately via predictedRetentionMonths/Pct). Acquisition
+// mechanics are judged on a fast payback window since that's the point of a
+// join-driving promo; utilisation mechanics fill capacity with members who
+// behave like the existing base, so their value is realised over a longer
+// window rather than a single-month revenue spike.
+const REVENUE_ATTRIBUTION_MONTHS: Record<MechanicCategory, number> = {
+  ACQUISITION: 1.6,
+  UTILISATION: 3.6,
+};
 
 export type SimulationInput = {
   mechanicCategory: MechanicCategory;
@@ -47,7 +55,7 @@ export function simulateCampaign(input: SimulationInput): SimulationResult {
   const predictedRetentionPct = Math.round(Math.min(96, 60 + (1 - retentionPenalty) * 35));
 
   const effectiveMonthlyFee = AVG_MONTHLY_FEE_GBP * (1 - (incentiveDepthPct / 100) * 0.35);
-  const predictedRevenueGbp = Math.round(predictedJoins * effectiveMonthlyFee * REVENUE_ATTRIBUTION_MONTHS);
+  const predictedRevenueGbp = Math.round(predictedJoins * effectiveMonthlyFee * REVENUE_ATTRIBUTION_MONTHS[mechanicCategory]);
   const predictedRoiPct = budgetGbp > 0 ? Math.round(((predictedRevenueGbp - budgetGbp) / budgetGbp) * 1000) / 10 : 0;
 
   const peakShare = offPeakOnly ? 0 : mechanicCategory === "ACQUISITION" ? 0.7 : 0.3;

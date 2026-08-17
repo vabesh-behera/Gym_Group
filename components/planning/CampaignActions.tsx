@@ -1,13 +1,21 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { decideCampaign } from "@/app/(dashboard)/planning/actions";
 
 export function CampaignActions({ campaignId }: { campaignId: string }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  function openSimulation() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", "simulate");
+    params.set("campaignId", campaignId);
+    router.push(`/planning?${params.toString()}`);
+  }
 
   return (
     <div className="flex items-center gap-1.5">
@@ -25,8 +33,8 @@ export function CampaignActions({ campaignId }: { campaignId: string }) {
       >
         ✕ Reject
       </Button>
-      <Button variant="outline" onClick={() => router.push(`/planning/simulate/${campaignId}`)}>
-        ⚡ Simulate
+      <Button variant="outline" onClick={openSimulation}>
+        ✎ Modify
       </Button>
     </div>
   );

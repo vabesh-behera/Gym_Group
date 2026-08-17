@@ -1,21 +1,33 @@
 import { PageHeader } from "@/components/layout/PageHeader";
+import { FilterBar } from "@/components/analytics/FilterBar";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiCard } from "@/components/ui/KpiCard";
-import { Badge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { MonitorTable } from "@/components/execution/MonitorTable";
 import { getExecutionData } from "@/lib/data/execution";
+import { parseFilters, getFilterOptions } from "@/lib/data/filters";
 import { formatGBP, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
-const HEALTH_TONE = { Healthy: "accent", Watch: "warning", Critical: "critical" } as const;
-const FLAG_TONE = { Underperform: "critical", Outperform: "accent", Competitor: "warning" } as const;
-
-export default async function ExecutionPage() {
-  const data = await getExecutionData();
+export default async function ExecutionPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const filters = parseFilters(sp);
+  const [options, data] = await Promise.all([getFilterOptions(), getExecutionData(filters)]);
 
   return (
     <>
       <PageHeader title="In-Flight" subtitle="Live campaign monitoring · early signals · active interventions" />
+      <FilterBar
+        regions={options.regions}
+        clubs={options.clubs}
+        catchmentAreas={options.catchmentAreas}
+        mechanics={options.mechanics}
+        audiences={options.audiences}
+      />
 
       <div className="space-y-6 px-8 py-6">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -39,63 +51,18 @@ export default async function ExecutionPage() {
             </div>
           </div>
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-[11px] font-semibold tracking-wide text-muted uppercase">
-                  <th className="px-6 py-2.5">Club / Mechanic</th>
-                  <th className="px-3 py-2.5">Day</th>
-                  <th className="px-3 py-2.5">Uptake vs Plan</th>
-                  <th className="px-3 py-2.5">Joins vs Predicted</th>
-                  <th className="px-3 py-2.5">Health</th>
-                  <th className="px-3 py-2.5 pr-6">Flags</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.monitored.map((m) => (
-                  <tr key={m.id} className="border-b border-border last:border-0 hover:bg-slate-50">
-                    <td className="px-6 py-3">
-                      <p className="font-semibold text-slate-900">{m.name}</p>
-                      <p className="text-xs text-muted">{m.club} · {m.mechanic}</p>
-                    </td>
-                    <td className="px-3 py-3 text-slate-700">
-                      D{m.dayOfFlight} <span className="text-xs text-muted">of {m.totalDays}</span>
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <ProgressBar pct={m.uptakePct} className="w-16" tone={m.uptakePct >= m.plannedUptakePct ? "accent" : "warning"} />
-                        <span className="text-xs font-semibold text-slate-700">{m.uptakePct}%</span>
-                      </div>
-                      <p className="mt-0.5 text-[11px] text-muted">plan {m.plannedUptakePct}%</p>
-                    </td>
-                    <td className="px-3 py-3">
-                      <p className="font-semibold text-slate-800">{formatNumber(m.actualJoinsToDate)}</p>
-                      <p className={cn("text-xs", m.vsPredictedPct >= 0 ? "text-accent-dark" : "text-critical")}>
-                        {m.vsPredictedPct >= 0 ? "+" : ""}
-                        {m.vsPredictedPct}% vs pred
-                      </p>
-                    </td>
-                    <td className="px-3 py-3">
-                      <Badge tone={HEALTH_TONE[m.health]}>{m.healthScore} · {m.health}</Badge>
-                    </td>
-                    <td className="px-3 py-3 pr-6">
-                      {m.flag ? <Badge tone={FLAG_TONE[m.flag as keyof typeof FLAG_TONE]}>{m.flag === "Underperform" ? "↓" : m.flag === "Outperform" ? "↑" : "⚡"} {m.flag}</Badge> : <span className="text-muted">—</span>}
-                    </td>
-                  </tr>
-                ))}
-                {data.monitored.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-sm text-muted">
-                      No campaigns are currently in flight.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <MonitorTable
+              monitored={data.monitored.map((m) => ({
+                ...m,
+                startDate: m.startDate.toISOString(),
+                endDate: m.endDate.toISOString(),
+              }))}
+            />
           </div>
         </Card>
 
         <Card>
-          <CardHeader title="Uptake Compliance — All Active Campaigns" subtitle="% of planned uptake actually reached, live" />
+          <CardHeader title="Uptake Compliance — All Active Campaigns" />
           <div className="space-y-4">
             {data.monitored.map((m) => (
               <div key={m.id}>

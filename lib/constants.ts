@@ -16,7 +16,6 @@ export const NAV_SECTIONS = [
     items: [
       { label: "AI Advisor", href: "/intelligence/advisor", icon: "sparkles" as const },
       { label: "Smart Alerts", href: "/intelligence/alerts", icon: "alert" as const },
-      { label: "Promo Change Detection", href: "/intelligence/changes", icon: "mail" as const },
     ],
   },
 ];

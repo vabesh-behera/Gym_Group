@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 
 export function KpiCard({
@@ -9,6 +10,8 @@ export function KpiCard({
   deltaTone = "auto",
   valueTone = "default",
   footer,
+  href,
+  active,
 }: {
   label: string;
   value: string;
@@ -17,6 +20,10 @@ export function KpiCard({
   deltaTone?: "auto" | "positive" | "negative" | "neutral";
   valueTone?: "default" | "critical" | "accent";
   footer?: ReactNode;
+  /** When set, the card becomes clickable and links to this href (e.g. to toggle a detail section via a query param). */
+  href?: string;
+  /** Visually marks the card as the source of an expanded/active section below. */
+  active?: boolean;
 }) {
   const tone =
     deltaTone === "auto" && delta
@@ -27,9 +34,16 @@ export function KpiCard({
           : "neutral"
       : deltaTone;
 
-  return (
-    <div className="card p-5">
-      <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">{label}</p>
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">{label}</p>
+        {href && (
+          <span className={cn("text-xs transition", active ? "text-accent-dark" : "text-muted-light")}>
+            {active ? "▲" : "▼"}
+          </span>
+        )}
+      </div>
       <p
         className={cn(
           "mt-2 text-2xl font-bold",
@@ -58,6 +72,16 @@ export function KpiCard({
         </div>
       )}
       {footer}
-    </div>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className={cn("card block p-5 transition hover:border-accent/50 hover:shadow-md", active && "border-accent/60 ring-1 ring-accent/20")}>
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className="card p-5">{content}</div>;
 }

@@ -1,11 +1,24 @@
 import { prisma } from "@/lib/prisma";
+import type { AudienceType, CampaignObjective, MechanicCategory } from "../../generated/prisma/enums";
+import type { AnalyticsFilters } from "@/lib/data/filters";
 import { seededRange } from "@/lib/rand";
 
 const TODAY = new Date("2026-08-13");
 
-export async function getExecutionData() {
+export async function getExecutionData(filters: AnalyticsFilters) {
+  const campaignWhere = {
+    status: "ACTIVE" as const,
+    ...(filters.regionId ? { regionId: filters.regionId } : {}),
+    ...(filters.clubId ? { clubId: filters.clubId } : {}),
+    ...(filters.catchmentArea ? { club: { catchmentArea: filters.catchmentArea } } : {}),
+    ...(filters.audienceType ? { audienceType: filters.audienceType as AudienceType } : {}),
+    ...(filters.mechanicId ? { mechanicId: filters.mechanicId } : {}),
+    ...(filters.mechanicCategory ? { mechanic: { category: filters.mechanicCategory as MechanicCategory } } : {}),
+    ...(filters.objective ? { objective: filters.objective as CampaignObjective } : {}),
+  };
+
   const active = await prisma.campaign.findMany({
-    where: { status: "ACTIVE" },
+    where: campaignWhere,
     include: { mechanic: true, club: true, region: true },
     orderBy: { startDate: "asc" },
   });
@@ -43,11 +56,15 @@ export async function getExecutionData() {
       plannedUptakePct,
       actualJoinsToDate,
       plannedJoinsToDate,
+      predictedJoins: c.predictedJoins,
       vsPredictedPct,
       healthScore,
       health,
       flag,
       budget: c.budget,
+      predictedRoi: c.predictedRoi,
+      startDate: c.startDate,
+      endDate: c.endDate,
     };
   });
 

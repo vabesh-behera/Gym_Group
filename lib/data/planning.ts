@@ -1,22 +1,41 @@
 import { prisma } from "@/lib/prisma";
+import type { AudienceType, CampaignObjective, MechanicCategory } from "../../generated/prisma/enums";
+import type { AnalyticsFilters } from "@/lib/data/filters";
 
-export async function getPlanningData() {
+export async function getPlanningData(filters: AnalyticsFilters) {
   const now = new Date("2026-08-13"); // demo "today", matches seeded data horizon
+
+  const campaignWhere = {
+    ...(filters.regionId ? { regionId: filters.regionId } : {}),
+    ...(filters.clubId ? { clubId: filters.clubId } : {}),
+    ...(filters.catchmentArea ? { club: { catchmentArea: filters.catchmentArea } } : {}),
+    ...(filters.audienceType ? { audienceType: filters.audienceType as AudienceType } : {}),
+    ...(filters.mechanicId ? { mechanicId: filters.mechanicId } : {}),
+    ...(filters.mechanicCategory ? { mechanic: { category: filters.mechanicCategory as MechanicCategory } } : {}),
+    ...(filters.objective ? { objective: filters.objective as CampaignObjective } : {}),
+  };
 
   const [recommended, needsAttention, allClubs, upcomingActive] = await Promise.all([
     prisma.campaign.findMany({
-      where: { status: "RECOMMENDED", startDate: { gte: now } },
+      where: { ...campaignWhere, status: "RECOMMENDED", startDate: { gte: now } },
       include: { mechanic: true, club: true, region: true },
       orderBy: { startDate: "asc" },
     }),
     prisma.campaign.findMany({
-      where: { status: "NEEDS_ATTENTION" },
+      where: { ...campaignWhere, status: "NEEDS_ATTENTION" },
       include: { mechanic: true, club: true, region: true },
       orderBy: { startDate: "asc" },
     }),
-    prisma.club.findMany({ include: { region: true } }),
+    prisma.club.findMany({
+      where: {
+        ...(filters.regionId ? { regionId: filters.regionId } : {}),
+        ...(filters.clubId ? { id: filters.clubId } : {}),
+        ...(filters.catchmentArea ? { catchmentArea: filters.catchmentArea } : {}),
+      },
+      include: { region: true },
+    }),
     prisma.campaign.findMany({
-      where: { status: { in: ["RECOMMENDED", "NEEDS_ATTENTION", "ACCEPTED"] }, startDate: { gte: now } },
+      where: { ...campaignWhere, status: { in: ["RECOMMENDED", "NEEDS_ATTENTION", "ACCEPTED"] }, startDate: { gte: now } },
     }),
   ]);
 

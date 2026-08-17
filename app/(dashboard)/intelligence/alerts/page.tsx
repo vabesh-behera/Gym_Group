@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { RescanButton } from "@/components/intelligence/RescanButton";
+import { AlertsScanPanel } from "@/components/intelligence/AlertsScanPanel";
 import { getAlertsData } from "@/lib/data/alerts";
 import { formatGBP, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -26,11 +26,7 @@ export default async function AlertsPage({
 
   return (
     <>
-      <PageHeader
-        title="Smart Alerts"
-        subtitle="Real-time market monitoring across your clubs"
-        actions={<RescanButton />}
-      />
+      <PageHeader title="Smart Alerts" subtitle="Real-time market monitoring across your clubs" />
       <div className="space-y-6 px-8 py-6">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Card padded={false} className="p-4">
@@ -51,31 +47,14 @@ export default async function AlertsPage({
           </Card>
         </div>
 
-        <Card className="flex flex-wrap items-center justify-between gap-4 bg-navy text-white">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/15">🤖</div>
-            <div>
-              <p className="text-sm font-bold">PromoIQ Monitoring Agent</p>
-              <p className="text-xs text-white/60">
-                Active · last scan {formatDateTime(lastScan)} · {data.clubsInScope} clubs · {data.regionsInScope} regions in scope
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-5 text-center text-sm">
-            <div>
-              <p className="text-lg font-bold">{data.alerts.length}</p>
-              <p className="text-[11px] text-white/60">Active Alerts</p>
-            </div>
-            <div>
-              <p className="text-lg font-bold text-critical">{data.critical}</p>
-              <p className="text-[11px] text-white/60">Critical</p>
-            </div>
-            <div>
-              <p className="text-lg font-bold text-accent">{data.resolvedToday}</p>
-              <p className="text-[11px] text-white/60">Resolved Today</p>
-            </div>
-          </div>
-        </Card>
+        <AlertsScanPanel
+          lastScanLabel={formatDateTime(lastScan)}
+          clubsInScope={data.clubsInScope}
+          regionsInScope={data.regionsInScope}
+          activeAlerts={data.alerts.length}
+          critical={data.critical}
+          resolvedToday={data.resolvedToday}
+        />
 
         <div>
           <div className="mb-4 flex items-center justify-between">

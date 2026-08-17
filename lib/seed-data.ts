@@ -217,8 +217,13 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     const objective = pick(`${seed}-objective`, objectiveOptions);
 
     const budget = Math.round(seededRange(`${seed}-budget`, 3000, 42000) / 500) * 500;
-    const incentiveDepthPct = Math.round(seededRange(`${seed}-depth`, 10, 60));
-    const durationWeeks = Math.round(seededRange(`${seed}-duration`, 2, 8));
+    // NEEDS_ATTENTION and REJECTED are allowed to land on weak parameter
+    // combos (that's literally why they need review / got turned down).
+    // Every other status — including RECOMMENDED — is an "AI recommendation"
+    // and should never be seeded with a predictably negative ROI.
+    const healthy = plan.status !== "NEEDS_ATTENTION" && plan.status !== "REJECTED";
+    const incentiveDepthPct = Math.round(seededRange(`${seed}-depth`, healthy ? 25 : 10, healthy ? 55 : 60));
+    const durationWeeks = Math.round(seededRange(`${seed}-duration`, healthy ? 4 : 2, 8));
     const offPeakOnly = mechanic.category === "UTILISATION" && seededRandom(`${seed}-offpeak`) > 0.35;
 
     const util = clubUtilSummary.get(club.id)!;

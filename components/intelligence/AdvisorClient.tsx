@@ -74,19 +74,21 @@ export function AdvisorClient({ history }: { history: Message[] }) {
         <div ref={bottomRef} />
       </div>
 
-      {messages.length === 0 && (
-        <div className="mb-3 flex flex-wrap gap-2">
+      <div className="mb-3">
+        <p className="mb-1.5 text-[11px] font-semibold tracking-wide text-muted uppercase">Suggested questions</p>
+        <div className="flex flex-wrap gap-2">
           {SUGGESTED.map((q) => (
             <button
               key={q}
               onClick={() => send(q)}
-              className="rounded-full border border-border bg-white px-3.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-accent hover:text-accent-dark"
+              disabled={loading}
+              className="rounded-full border border-border bg-white px-3.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-accent hover:text-accent-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               {q}
             </button>
           ))}
         </div>
-      )}
+      </div>
 
       <form
         onSubmit={(e) => {

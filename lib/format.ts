@@ -31,18 +31,18 @@ export function formatMonth(date: Date): string {
   return new Intl.DateTimeFormat("en-GB", { month: "short", year: "2-digit" }).format(date);
 }
 
-export function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(date);
+export function formatDate(date: Date | string): string {
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(date));
 }
 
-export function formatDateTime(date: Date): string {
+export function formatDateTime(date: Date | string): string {
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date);
+  }).format(new Date(date));
 }
 
 export function relativeTime(date: Date): string {

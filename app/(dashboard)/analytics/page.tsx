@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FilterBar } from "@/components/analytics/FilterBar";
+import { CampaignAnalysisModal } from "@/components/analytics/CampaignAnalysisModal";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiCard } from "@/components/ui/KpiCard";
-import { Badge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { TrendChart } from "@/components/charts/TrendChart";
 import { BubbleChart } from "@/components/charts/BubbleChart";
@@ -29,6 +29,12 @@ export default async function AnalyticsPage({
   if (showAnalysis) analysisParams.delete("analysis");
   else analysisParams.set("analysis", "1");
   const analysisHref = `/analytics?${analysisParams.toString()}`;
+
+  const scopeLabel = filters.clubId
+    ? (options.clubs.find((c) => c.value === filters.clubId)?.label ?? "Selected Club")
+    : filters.regionId
+      ? (options.regions.find((r) => r.value === filters.regionId)?.label ?? "Selected Region")
+      : "All Clubs";
 
   return (
     <>
@@ -81,34 +87,15 @@ export default async function AnalyticsPage({
         </div>
 
         {showAnalysis && (
-          <Card padded={false}>
-            <div className="flex items-center justify-between p-6 pb-0">
-              <CardHeader title="Campaign Analysis" />
-              <Link href={analysisHref} className="text-xs font-semibold text-muted hover:text-slate-700">
-                Close ✕
-              </Link>
-            </div>
-            <p className="px-6 pt-1 text-xs text-muted">Scale, optimize, or stop — every campaign in the current filter scope, with explainability.</p>
-            <div className="mt-4 max-h-[28rem] divide-y divide-border overflow-y-auto scrollbar-thin">
-              {data.campaignRecommendations.map((c) => (
-                <div key={c.id} className="px-6 py-3.5">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-slate-900">{c.name}</p>
-                    <Badge tone={c.recommendation === "scale" ? "accent" : c.recommendation === "optimize" ? "warning" : "critical"}>
-                      {c.recommendation.toUpperCase()}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted">
-                    {c.mechanic} · {c.club} · {c.roi}% ROI
-                  </p>
-                  <p className="mt-1.5 text-xs text-slate-600">{c.rationale}</p>
-                </div>
-              ))}
-              {data.campaignRecommendations.length === 0 && (
-                <p className="px-6 py-8 text-center text-sm text-muted">No campaigns in scope for the current filters.</p>
-              )}
-            </div>
-          </Card>
+          <CampaignAnalysisModal
+            closeHref={analysisHref}
+            totalCampaigns={data.campaignAnalysis.totalCampaigns}
+            periodLabel={filters.period}
+            scopeLabel={scopeLabel}
+            roiTiers={data.campaignAnalysis.roiTiers}
+            classification={data.campaignAnalysis.classification}
+            incrementality={data.campaignAnalysis.incrementalityAchieved}
+          />
         )}
 
         {/* Bubble + Trend */}

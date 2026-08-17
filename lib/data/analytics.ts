@@ -260,6 +260,46 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     }))
     .sort((a, b) => b.roi - a.roi);
 
+  // ---- Campaign Analysis modal: ROI tier distribution + outcome classification ----
+  const roiOf = (c: (typeof campaigns)[number]) => c.actualRoi ?? c.predictedRoi;
+  const ROI_TIERS = [
+    { key: "high", label: "High Performers", range: "ROI > 30%", tone: "high" as const, test: (r: number) => r > 30 },
+    { key: "solid", label: "Solid Performance", range: "ROI 15–30%", tone: "solid" as const, test: (r: number) => r >= 15 && r <= 30 },
+    { key: "under", label: "Underperformed", range: "ROI 0–15%", tone: "under" as const, test: (r: number) => r >= 0 && r < 15 },
+    { key: "negative", label: "Negative ROI", range: "ROI < 0%", tone: "negative" as const, test: (r: number) => r < 0 },
+  ];
+  const roiTiers = ROI_TIERS.map((tier) => {
+    const inTier = campaigns.filter((c) => tier.test(roiOf(c)));
+    return {
+      key: tier.key,
+      label: tier.label,
+      range: tier.range,
+      tone: tier.tone,
+      count: inTier.length,
+      sharePct: totalCampaigns > 0 ? Math.round((inTier.length / totalCampaigns) * 1000) / 10 : 0,
+      campaigns: inTier
+        .map((c) => ({ id: c.id, name: c.name, club: c.club?.name ?? c.region?.name ?? "Portfolio-wide", roi: Math.round(roiOf(c) * 10) / 10 }))
+        .sort((a, b) => b.roi - a.roi),
+    };
+  });
+
+  const classification = campaigns.reduce(
+    (acc, c) => {
+      const actual = roiOf(c);
+      if (actual < 0) acc.failed += 1;
+      else if (actual >= c.predictedRoi) acc.successful += 1;
+      else acc.mixed += 1;
+      return acc;
+    },
+    { successful: 0, mixed: 0, failed: 0 },
+  );
+
+  const incrementalityAchieved = {
+    netRetainedMembers: netRetainedIncrementalMembers,
+    incrementalRevenue: retainedIncrementalRevenue,
+    incrementalityPct: joins.length > 0 ? Math.round((incrementalJoins.length / joins.length) * 1000) / 10 : 0,
+  };
+
   return {
     kpis,
     trend,
@@ -269,5 +309,6 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     mechanicPerformance,
     clubRankings,
     campaignRecommendations,
+    campaignAnalysis: { totalCampaigns, roiTiers, classification, incrementalityAchieved },
   };
 }

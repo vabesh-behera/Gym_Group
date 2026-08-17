@@ -30,14 +30,10 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="mx-4 mb-2 flex items-center gap-3 rounded-lg border border-navy-border/60 px-3 py-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent text-xs font-bold text-navy">
-          GG
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">Gym Group</p>
-          <p className="truncate text-[11px] text-white/50">Club Portfolio</p>
-        </div>
+      <div className="mx-4 mb-2 rounded-lg border border-navy-border/60 px-3 py-3">
+        {/* eslint-disable-next-line @next/next/no-img-element -- static SVG asset, no benefit from next/image */}
+        <img src="/gym-group-logo.svg" alt="The Gym Group" className="h-8 w-auto" />
+        <p className="mt-1.5 text-[11px] text-white/50">Club Portfolio</p>
       </div>
 
       <nav className="mt-2 flex-1 overflow-y-auto px-3 pb-4 scrollbar-thin">

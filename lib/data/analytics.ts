@@ -3,7 +3,7 @@ import type { AudienceType, CampaignObjective, CampaignStatus, MechanicCategory 
 import type { AnalyticsFilters } from "@/lib/data/filters";
 import { seededRange } from "@/lib/rand";
 import { AVG_MONTHLY_FEE_GBP } from "@/lib/simulate/elasticity";
-import type { TrendPoint } from "@/components/charts/TrendChart";
+import type { TrendPoint } from "@/components/charts/TrendChartSwitcher";
 import type { BubblePoint } from "@/components/charts/BubbleChart";
 import type { IncrementalityStep } from "@/components/charts/IncrementalityChart";
 import type { UtilPoint } from "@/components/charts/UtilizationHeatmap";
@@ -142,8 +142,21 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
     .map((m) => ({
       month: new Intl.DateTimeFormat("en-GB", { month: "short", year: "2-digit" }).format(m.month),
       investment: Math.round(m.investment),
+      incrementalRevenue: Math.round(m.incrementalRevenue),
+      joins: m.joins,
       roi: Math.round(m.roi * 10) / 10,
     }));
+
+  // ---- Campaign velocity (count launched + avg ROI per month, same months as trend) ----
+  const campaignVelocity = trend.map((t) => {
+    const monthCampaigns = campaigns.filter(
+      (c) => new Intl.DateTimeFormat("en-GB", { month: "short", year: "2-digit" }).format(c.startDate) === t.month,
+    );
+    const avgMonthRoi = monthCampaigns.length
+      ? monthCampaigns.reduce((s, c) => s + (c.actualRoi ?? c.predictedRoi), 0) / monthCampaigns.length
+      : 0;
+    return { month: t.month, count: monthCampaigns.length, avgRoi: Math.round(avgMonthRoi * 10) / 10 };
+  });
 
   // ---- Bubble chart: spend vs incremental revenue uplift ----
   const bubblePoints: BubblePoint[] = campaigns.map((c) => {
@@ -352,6 +365,7 @@ export async function getAnalyticsData(filters: AnalyticsFilters) {
   return {
     kpis,
     trend,
+    campaignVelocity,
     bubblePoints,
     incrementalityWaterfall,
     heatmap,

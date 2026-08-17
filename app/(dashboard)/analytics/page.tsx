@@ -5,7 +5,7 @@ import { CampaignAnalysisModal } from "@/components/analytics/CampaignAnalysisMo
 import { Card, CardHeader } from "@/components/ui/Card";
 import { KpiCard } from "@/components/ui/KpiCard";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { TrendChart } from "@/components/charts/TrendChart";
+import { TrendChartSwitcher } from "@/components/charts/TrendChartSwitcher";
 import { BubbleChart } from "@/components/charts/BubbleChart";
 import { IncrementalityChart } from "@/components/charts/IncrementalityChart";
 import { UtilizationHeatmap } from "@/components/charts/UtilizationHeatmap";
@@ -111,7 +111,7 @@ export default async function AnalyticsPage({
           </Card>
           <Card>
             <CardHeader title="Trade Spend vs ROI" />
-            <TrendChart data={data.trend} />
+            <TrendChartSwitcher trend={data.trend} velocity={data.campaignVelocity} />
           </Card>
         </div>
 

@@ -115,17 +115,18 @@ export default async function AnalyticsPage({
           </Card>
         </div>
 
-        {/* Combined incrementality + member value waterfall */}
-        <Card>
-          <CardHeader title="Campaign Incrementality & Member Value" />
-          <IncrementalityChart steps={data.incrementalityWaterfall} />
-        </Card>
+        {/* Incrementality waterfall + heatmap, side by side */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <Card>
+            <CardHeader title="Campaign Incrementality & Member Value" />
+            <IncrementalityChart steps={data.incrementalityWaterfall} />
+          </Card>
 
-        {/* Heatmap */}
-        <Card>
-          <CardHeader title="Weekly Capacity Opportunity Map" />
-          <UtilizationHeatmap data={data.heatmap} />
-        </Card>
+          <Card>
+            <CardHeader title="Weekly Capacity Opportunity Map" />
+            <UtilizationHeatmap data={data.heatmap} />
+          </Card>
+        </div>
 
         {/* Mechanic performance + Club rankings */}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">

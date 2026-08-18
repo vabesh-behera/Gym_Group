@@ -36,11 +36,11 @@ export function UtilizationHeatmap({ data }: { data: UtilPoint[] }) {
   return (
     <div>
       <div className="overflow-x-auto scrollbar-thin">
-        <div className="min-w-[900px]">
-          <div className="grid grid-cols-[56px_repeat(17,1fr)] gap-1">
+        <div className="min-w-[520px]">
+          <div className="grid grid-cols-[36px_repeat(17,1fr)] gap-0.5">
             <div />
             {HOURS.map((h) => (
-              <div key={h} className="text-center text-[10px] text-muted">
+              <div key={h} className="text-center text-[8.5px] text-muted">
                 {formatHour(h)}
               </div>
             ))}
@@ -49,7 +49,7 @@ export function UtilizationHeatmap({ data }: { data: UtilPoint[] }) {
                 <button
                   onClick={() => setSelectedDay(dayIdx)}
                   className={cn(
-                    "rounded-md px-2 py-1.5 text-left text-xs font-semibold transition",
+                    "rounded-md px-1 py-1 text-left text-[11px] font-semibold transition",
                     selectedDay === dayIdx ? "bg-navy text-white" : "text-slate-600 hover:bg-slate-100",
                   )}
                 >

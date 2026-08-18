@@ -3,6 +3,7 @@
 import { Fragment, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { VolumeTrajectoryChart, type TrajectoryPoint } from "@/components/execution/VolumeTrajectoryChart";
 import { formatGBP, formatNumber, formatDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
@@ -30,6 +31,9 @@ export type MonitoredCampaign = {
   predictedRoi: number;
   startDate: string;
   endDate: string;
+  churnRiskPct: number;
+  trajectory: TrajectoryPoint[];
+  recommendation: string;
 };
 
 const FLAG_EXPLANATION: Record<string, string> = {
@@ -37,6 +41,38 @@ const FLAG_EXPLANATION: Record<string, string> = {
   Outperform: "Actual joins are tracking 15%+ ahead of plan — a candidate to scale budget or extend the window.",
   Competitor: "Uptake is lagging plan and a nearby competitor signal was recently detected — worth checking local pricing pressure.",
 };
+
+function riskTier(pct: number): { label: string; color: string } {
+  if (pct >= 60) return { label: "High Risk", color: "#dc2626" };
+  if (pct >= 35) return { label: "Medium Risk", color: "#d97706" };
+  return { label: "Low Risk", color: "#10b981" };
+}
+
+function ChurnRiskGauge({ pct }: { pct: number }) {
+  const tier = riskTier(pct);
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">Post-Offer Churn Risk</p>
+        <Badge tone={pct >= 60 ? "critical" : pct >= 35 ? "warning" : "accent"}>{tier.label}</Badge>
+      </div>
+      <div className="mt-3 flex items-center justify-between text-[10px] text-muted-light">
+        <span>Low</span>
+        <span>High</span>
+      </div>
+      <div className="relative mt-1 h-2 w-full rounded-full" style={{ background: "linear-gradient(90deg, #10b981, #d97706, #dc2626)" }}>
+        <div
+          className="absolute top-1/2 h-3.5 w-3.5 -translate-y-1/2 rounded-full border-2 border-white shadow"
+          style={{ left: `calc(${pct}% - 7px)`, backgroundColor: tier.color }}
+        />
+      </div>
+      <p className="mt-2 text-sm font-bold" style={{ color: tier.color }}>
+        {pct}% probability
+      </p>
+      <p className="mt-0.5 text-xs text-muted">of members from this offer lapsing once the incentive period ends</p>
+    </div>
+  );
+}
 
 export function MonitorTable({ monitored }: { monitored: MonitoredCampaign[] }) {
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -118,7 +154,30 @@ export function MonitorTable({ monitored }: { monitored: MonitoredCampaign[] }) 
                         <p className="mt-1 text-sm font-semibold text-slate-800">{m.predictedRoi}%</p>
                       </div>
                     </div>
-                    <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                      <div className="rounded-xl border border-border bg-white p-4 lg:col-span-2">
+                        <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">Actual vs Predicted Volume Trajectory</p>
+                        <p className="mt-0.5 text-xs text-muted">Cumulative joins · Day {m.dayOfFlight} of {m.totalDays}</p>
+                        <VolumeTrajectoryChart data={m.trajectory} dayOfFlight={m.dayOfFlight} />
+                      </div>
+                      <div className="space-y-4">
+                        <div className="rounded-xl border border-border bg-white p-4">
+                          <ChurnRiskGauge pct={m.churnRiskPct} />
+                        </div>
+                        <div
+                          className={cn(
+                            "rounded-xl border-l-4 bg-white p-4",
+                            m.health === "Critical" ? "border-l-critical" : m.health === "Watch" ? "border-l-warning" : "border-l-accent",
+                          )}
+                        >
+                          <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">Recommendation</p>
+                          <p className="mt-1.5 text-sm text-slate-700">{m.recommendation}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
                         <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">Joins to Date vs Plan</p>
                         <p className="mt-1 text-sm text-slate-700">

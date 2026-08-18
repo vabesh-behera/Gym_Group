@@ -28,6 +28,11 @@ export async function getSimulationBootstrap(campaignId: string) {
     ...summarizeUtil(c.utilization),
   }));
 
+  const originalDurationWeeks = Math.max(
+    1,
+    Math.round((campaign.endDate.getTime() - campaign.startDate.getTime()) / (7 * 24 * 60 * 60 * 1000)),
+  );
+
   return {
     campaign: {
       id: campaign.id,
@@ -39,8 +44,11 @@ export async function getSimulationBootstrap(campaignId: string) {
       clubId: campaign.clubId,
       objective: campaign.objective,
       predictedRoi: campaign.predictedRoi,
+      predictedJoins: campaign.predictedJoins,
+      predictedRetention: campaign.predictedRetention,
       minRoiGuardrail: campaign.minRoiGuardrail,
       maxPeakOccupancyGuardrail: campaign.maxPeakOccupancyGuardrail,
+      originalDurationWeeks,
     },
     mechanics: mechanics.map((m) => ({ id: m.id, name: m.name, category: m.category })),
     clubOptions,

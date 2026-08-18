@@ -2,11 +2,15 @@ import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { FilterBar } from "@/components/analytics/FilterBar";
 import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { SimulationClient } from "@/components/planning/SimulationClient";
 import { getPlanningData } from "@/lib/data/planning";
 import { getSimulationBootstrap } from "@/lib/data/simulation";
 import { parseFilters, getFilterOptions } from "@/lib/data/filters";
+import { CAMPAIGN_STATUS_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/cn";
+
+const STATUS_TONE = { RECOMMENDED: "accent", NEEDS_ATTENTION: "warning", ACCEPTED: "navy" } as const;
 
 export default async function SimulationIndexPage({
   searchParams,
@@ -17,7 +21,7 @@ export default async function SimulationIndexPage({
   const filters = parseFilters(sp);
 
   const [options, planningData] = await Promise.all([getFilterOptions(), getPlanningData(filters)]);
-  const candidates = [...planningData.recommended, ...planningData.needsAttention];
+  const candidates = planningData.upcoming;
 
   const campaignIdParam = Array.isArray(sp.campaignId) ? sp.campaignId[0] : sp.campaignId;
   const campaignId = campaignIdParam ?? candidates[0]?.id;
@@ -43,7 +47,7 @@ export default async function SimulationIndexPage({
       <div className="px-8 py-6">
         {candidates.length === 0 ? (
           <Card>
-            <p className="text-sm text-muted">No recommended or needs-attention campaigns in the current filter scope to simulate.</p>
+            <p className="text-sm text-muted">No upcoming campaigns in the current filter scope to simulate.</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
@@ -58,7 +62,12 @@ export default async function SimulationIndexPage({
                     href={campaignHref(c.id)}
                     className={cn("block px-4 py-3 transition", c.id === campaignId ? "bg-navy text-white" : "hover:bg-slate-50")}
                   >
-                    <p className="text-sm font-semibold">{c.name}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold">{c.name}</p>
+                      <Badge tone={STATUS_TONE[c.status as keyof typeof STATUS_TONE] ?? "neutral"} className="shrink-0">
+                        {CAMPAIGN_STATUS_LABELS[c.status] ?? c.status}
+                      </Badge>
+                    </div>
                     <p className={cn("mt-0.5 text-xs", c.id === campaignId ? "text-white/60" : "text-muted")}>
                       {c.club?.name ?? c.region?.name} · {c.predictedRoi}% ROI
                     </p>

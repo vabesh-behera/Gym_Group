@@ -1,14 +1,16 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Select";
-import { simulateCampaign } from "@/lib/simulate/elasticity";
+import { simulateCampaign, type SimulationResult } from "@/lib/simulate/elasticity";
 import { formatGBP, formatNumber } from "@/lib/format";
 import { OBJECTIVE_LABELS } from "@/lib/constants";
 import { applySimulation } from "@/app/(dashboard)/planning/simulate/actions";
+import { decideCampaign } from "@/app/(dashboard)/planning/actions";
 import { cn } from "@/lib/cn";
 
 type Mechanic = { id: string; name: string; category: "ACQUISITION" | "UTILISATION" };
@@ -36,16 +38,20 @@ export function SimulationClient({
     clubId: string | null;
     objective: string;
     predictedRoi: number;
+    predictedJoins: number;
+    predictedRetention: number;
     minRoiGuardrail: number | null;
     maxPeakOccupancyGuardrail: number | null;
+    originalDurationWeeks: number;
   };
   mechanics: Mechanic[];
   clubs: ClubOption[];
 }) {
+  const router = useRouter();
   const [mechanicId, setMechanicId] = useState(campaign.mechanicId);
   const [clubId, setClubId] = useState(campaign.clubId ?? clubs[0]?.id ?? "");
   const [incentiveDepthPct, setIncentiveDepthPct] = useState(campaign.incentiveValue);
-  const [durationWeeks, setDurationWeeks] = useState(4);
+  const [durationWeeks, setDurationWeeks] = useState(campaign.originalDurationWeeks);
   const [budget, setBudget] = useState(campaign.budget);
   const [offPeakOnly, setOffPeakOnly] = useState(campaign.offPeakOnly);
   const [minRoi, setMinRoi] = useState(campaign.minRoiGuardrail ?? 15);
@@ -64,6 +70,34 @@ export function SimulationClient({
 
   const mechanic = mechanics.find((m) => m.id === mechanicId) ?? mechanics[0];
   const club = clubs.find((c) => c.id === clubId) ?? clubs[0];
+
+  // The original club/mechanic the campaign was recommended against, held
+  // stable regardless of what the user picks in the controls below — this is
+  // what the "AI Recommended" baseline is computed from.
+  const originalMechanic = useMemo(() => mechanics.find((m) => m.id === campaign.mechanicId) ?? mechanics[0], [mechanics, campaign.mechanicId]);
+  const originalClub = useMemo(() => clubs.find((c) => c.id === campaign.clubId) ?? clubs[0], [clubs, campaign.clubId]);
+
+  const baseline = useMemo(
+    () =>
+      simulateCampaign({
+        mechanicCategory: originalMechanic.category,
+        incentiveDepthPct: campaign.incentiveValue,
+        durationWeeks: campaign.originalDurationWeeks,
+        budgetGbp: campaign.budget,
+        offPeakOnly: campaign.offPeakOnly,
+        club: {
+          peakCapacity: originalClub.peakCapacity,
+          currentPeakUtilPct: originalClub.currentPeakUtilPct,
+          currentOffPeakUtilPct: originalClub.currentOffPeakUtilPct,
+        },
+        guardrails: {},
+      }),
+    // Intentionally computed once from the campaign's original stored
+    // parameters, not the live controls below — this is the fixed baseline
+    // the "Simulated" scenario is compared against.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   const result = useMemo(
     () =>
@@ -84,6 +118,13 @@ export function SimulationClient({
   );
 
   const hasViolations = result.violations.length > 0;
+  const hasChanges =
+    mechanicId !== campaign.mechanicId ||
+    clubId !== campaign.clubId ||
+    incentiveDepthPct !== campaign.incentiveValue ||
+    durationWeeks !== campaign.originalDurationWeeks ||
+    budget !== campaign.budget ||
+    offPeakOnly !== campaign.offPeakOnly;
 
   async function fetchAiAlternative() {
     setLoadingAi(true);
@@ -120,7 +161,14 @@ export function SimulationClient({
     setAiSuggestion(null);
   }
 
-  function handleSave() {
+  function handleApplyRecommended() {
+    startTransition(async () => {
+      await decideCampaign(campaign.id, "ACCEPTED");
+      router.push("/planning");
+    });
+  }
+
+  function handleApplySimulated() {
     startTransition(() =>
       applySimulation(campaign.id, {
         mechanicId,
@@ -211,7 +259,7 @@ export function SimulationClient({
           <div className="flex items-start gap-3">
             <span className="text-xl text-critical">⊗</span>
             <div className="flex-1">
-              <p className="font-bold text-critical">Guardrail Violated — Cannot Submit</p>
+              <p className="font-bold text-critical">Guardrail Violated — Simulated Scenario Cannot Be Applied</p>
               <ul className="mt-1 list-inside list-disc space-y-0.5 text-sm text-critical/90">
                 {result.violations.map((v) => (
                   <li key={v}>{v}</li>
@@ -241,35 +289,65 @@ export function SimulationClient({
       )}
 
       <Card>
-        <CardHeader title="Predicted Outcomes" subtitle="Recomputed live as you adjust the controls above" />
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-          <Outcome label="Incremental Joins" value={formatNumber(result.predictedJoins)} />
-          <Outcome label="Predicted Revenue" value={formatGBP(result.predictedRevenueGbp, { compact: true })} />
-          <Outcome label="True ROI" value={`${result.predictedRoiPct}%`} tone={result.predictedRoiPct >= 15 ? "positive" : "negative"} />
-          <Outcome label="Retention" value={`${result.predictedRetentionPct}%`} />
-          <Outcome
-            label="Congestion Risk"
-            value={result.congestionRisk.toUpperCase()}
-            tone={result.congestionRisk === "low" ? "positive" : result.congestionRisk === "medium" ? "neutral" : "negative"}
-          />
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-xs text-muted">Peak utilisation after</p>
-            <p className="font-semibold text-slate-800">{result.peakUtilisationAfterPct}%</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted">Off-peak utilisation after</p>
-            <p className="font-semibold text-slate-800">{result.offPeakUtilisationAfterPct}%</p>
-          </div>
+        <CardHeader title="Scenario Comparison" subtitle="AI Recommended baseline vs. your adjusted simulation" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <ScenarioPanel
+            badge={<Badge tone="accent">✨ AI Recommended</Badge>}
+            summary={`${originalMechanic.name} · ${campaign.incentiveValue}% · ${campaign.originalDurationWeeks}w · ${formatGBP(campaign.budget, { compact: true })}`}
+            result={baseline}
+            highlight={!hasChanges}
+          >
+            <Button variant="outline" className="mt-4 w-full" disabled={isPending} onClick={handleApplyRecommended}>
+              {isPending ? "Applying…" : "Apply AI Recommended"}
+            </Button>
+          </ScenarioPanel>
+
+          <ScenarioPanel
+            badge={<Badge tone="navy">Simulated</Badge>}
+            summary={`${mechanic.name} · ${incentiveDepthPct}% · ${durationWeeks}w · ${formatGBP(budget, { compact: true })}`}
+            result={result}
+            highlight={hasChanges}
+          >
+            <Button variant="accent" className="mt-4 w-full" disabled={hasViolations || isPending} onClick={handleApplySimulated}>
+              {isPending ? "Applying…" : "Apply Simulated"}
+            </Button>
+          </ScenarioPanel>
         </div>
       </Card>
+    </div>
+  );
+}
 
-      <div className="flex justify-end gap-3">
-        <Button variant="accent" disabled={hasViolations || isPending} onClick={handleSave}>
-          {isPending ? "Saving…" : "Save & Accept Campaign"}
-        </Button>
+function ScenarioPanel({
+  badge,
+  summary,
+  result,
+  highlight,
+  children,
+}: {
+  badge: React.ReactNode;
+  summary: string;
+  result: SimulationResult;
+  highlight: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={cn("rounded-xl border p-4", highlight ? "border-accent/40 bg-accent-soft/30" : "border-border")}>
+      {badge}
+      <p className="mt-2 text-xs text-muted">{summary}</p>
+      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+        <Outcome label="Joins" value={formatNumber(result.predictedJoins)} />
+        <Outcome label="Revenue" value={formatGBP(result.predictedRevenueGbp, { compact: true })} />
+        <Outcome label="ROI" value={`${result.predictedRoiPct}%`} tone={result.predictedRoiPct >= 15 ? "positive" : "negative"} />
+        <Outcome label="Retention" value={`${result.predictedRetentionPct}%`} />
+        <Outcome
+          label="Congestion Risk"
+          value={result.congestionRisk.toUpperCase()}
+          tone={result.congestionRisk === "low" ? "positive" : result.congestionRisk === "medium" ? "neutral" : "negative"}
+        />
+        <Outcome label="Peak Util. After" value={`${result.peakUtilisationAfterPct}%`} />
       </div>
+      {children}
     </div>
   );
 }
@@ -324,7 +402,7 @@ function Outcome({ label, value, tone = "neutral" }: { label: string; value: str
   return (
     <div>
       <p className="text-[11px] font-semibold tracking-wide text-muted uppercase">{label}</p>
-      <p className={cn("mt-1 text-lg font-bold", tone === "positive" && "text-accent-dark", tone === "negative" && "text-critical", tone === "neutral" && "text-slate-900")}>
+      <p className={cn("mt-1 text-sm font-bold", tone === "positive" && "text-accent-dark", tone === "negative" && "text-critical", tone === "neutral" && "text-slate-900")}>
         {value}
       </p>
     </div>

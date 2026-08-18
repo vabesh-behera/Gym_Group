@@ -15,7 +15,7 @@ export async function getPlanningData(filters: AnalyticsFilters) {
     ...(filters.objective ? { objective: filters.objective as CampaignObjective } : {}),
   };
 
-  const [recommended, needsAttention, allClubs, upcomingActive] = await Promise.all([
+  const [recommended, needsAttention, allClubs, upcoming] = await Promise.all([
     prisma.campaign.findMany({
       where: { ...campaignWhere, status: "RECOMMENDED", startDate: { gte: now } },
       include: { mechanic: true, club: true, region: true },
@@ -34,19 +34,23 @@ export async function getPlanningData(filters: AnalyticsFilters) {
       },
       include: { region: true },
     }),
+    // Same scope as the Total Upcoming KPI (RECOMMENDED/NEEDS_ATTENTION/ACCEPTED,
+    // starting from now) but with full relations included, so this one list can
+    // double as the Simulation screen's candidate list without drifting out of
+    // sync with the KPI count.
     prisma.campaign.findMany({
       where: { ...campaignWhere, status: { in: ["RECOMMENDED", "NEEDS_ATTENTION", "ACCEPTED"] }, startDate: { gte: now } },
+      include: { mechanic: true, club: true, region: true },
+      orderBy: { startDate: "asc" },
     }),
   ]);
 
-  const totalUpcoming = upcomingActive.length;
-  const budgetCommitted = upcomingActive.filter((c) => c.status === "ACCEPTED").reduce((s, c) => s + c.budget, 0);
+  const totalUpcoming = upcoming.length;
+  const budgetCommitted = upcoming.filter((c) => c.status === "ACCEPTED").reduce((s, c) => s + c.budget, 0);
   const needingAction = needsAttention.length;
   const budgetAtRisk = needsAttention.reduce((s, c) => s + c.budget, 0);
 
-  const clubsWithCoverage = new Set(
-    [...recommended, ...needsAttention, ...upcomingActive].map((c) => c.clubId).filter(Boolean),
-  );
+  const clubsWithCoverage = new Set([...recommended, ...needsAttention, ...upcoming].map((c) => c.clubId).filter(Boolean));
   const gaps = allClubs
     .filter((c) => !clubsWithCoverage.has(c.id))
     .slice(0, 4)
@@ -59,5 +63,5 @@ export async function getPlanningData(filters: AnalyticsFilters) {
       }`,
     }));
 
-  return { recommended, needsAttention, totalUpcoming, budgetCommitted, needingAction, budgetAtRisk, gaps };
+  return { recommended, needsAttention, upcoming, totalUpcoming, budgetCommitted, needingAction, budgetAtRisk, gaps };
 }

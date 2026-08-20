@@ -36,6 +36,82 @@ function rationale(mechanicName: string, clubName: string, objective: string, ro
   return `${mechanicName} at ${clubName} is underperforming its ${objectiveLabel.toLowerCase()} target. Recommend pausing spend and re-testing at a lower incentive depth or a different mechanic.`;
 }
 
+// ---------------------------------------------------------------------------
+// Capacity-gap-driven utilisation targeting
+//
+// Every club previously used the same utilisation curve shape (just jitter),
+// so there was nothing genuinely club-specific for a utilisation campaign to
+// target, and campaign club/mechanic/audience picks were fully random —
+// disconnected from the actual heatmap a planner sees on the Analytics page.
+// This gives each club a distinct profile (so the heatmap shows real,
+// differentiated gaps), detects each club's weakest weekday daytime window,
+// and drives UTILISATION-mechanic campaign generation from those real gaps —
+// with the elasticity model's ROI computed against that exact window's
+// utilisation, not a generic club-wide average.
+// ---------------------------------------------------------------------------
+
+type UtilProfile = "commuter" | "suburban" | "campus";
+const UTIL_PROFILES: UtilProfile[] = ["commuter", "suburban", "campus"];
+
+function profileMultiplier(profile: UtilProfile, dayOfWeek: number, hour: number, isWeekend: boolean): number {
+  const isFriday = dayOfWeek === 5;
+  if (profile === "commuter") {
+    if (!isWeekend && hour >= 11 && hour <= 15) return 0.55; // deep weekday midday trough
+    if (isWeekend) return 0.85;
+    return 1;
+  }
+  if (profile === "campus") {
+    if (!isWeekend && hour >= 10 && hour <= 16) return 1.3; // students fill the daytime
+    if (isFriday && hour >= 17 && hour <= 20) return 0.65; // Friday evening empties out
+    if (isWeekend) return 0.75;
+    return 1;
+  }
+  // suburban: flatter all day, stronger weekends (family use), shallower midday dip
+  if (!isWeekend && hour >= 11 && hour <= 15) return 0.82;
+  if (isWeekend) return 1.15;
+  return 1;
+}
+
+type CapacityGap = { hourStart: number; hourEnd: number; avgUtilPct: number; dayLabel: string };
+
+function formatHourRange(hourStart: number, hourEndExclusive: number): string {
+  const fmt = (h: number) => (h === 12 ? "12pm" : h > 12 ? `${h - 12}pm` : `${h}am`);
+  return `${fmt(hourStart)}–${fmt(hourEndExclusive)}`;
+}
+
+function findWeekdayDaytimeGap(rows: { dayOfWeek: number; hour: number; utilisationPct: number }[]): CapacityGap | null {
+  const weekdayDaytime = rows.filter((r) => r.dayOfWeek >= 1 && r.dayOfWeek <= 5 && r.hour >= 9 && r.hour <= 16);
+  const byHour = new Map<number, number[]>();
+  for (const r of weekdayDaytime) {
+    const arr = byHour.get(r.hour) ?? [];
+    arr.push(r.utilisationPct);
+    byHour.set(r.hour, arr);
+  }
+  const hourAvgs = Array.from(byHour.entries())
+    .map(([hour, vals]) => ({ hour, avg: vals.reduce((a, b) => a + b, 0) / vals.length }))
+    .sort((a, b) => a.hour - b.hour);
+
+  let best: { start: number; avg: number } | null = null;
+  for (let start = 9; start <= 14; start++) {
+    const window = hourAvgs.filter((h) => h.hour >= start && h.hour <= start + 2);
+    if (window.length < 3) continue;
+    const avg = window.reduce((s, h) => s + h.avg, 0) / window.length;
+    if (!best || avg < best.avg) best = { start, avg };
+  }
+  if (!best) return null;
+  return { hourStart: best.start, hourEnd: best.start + 3, avgUtilPct: Math.round(best.avg), dayLabel: "weekday" };
+}
+
+function cohortForGap(profile: UtilProfile): { audience: "STUDENT" | "HYBRID_WORKER" | "GENERAL"; persona: string } {
+  if (profile === "campus") return { audience: "STUDENT", persona: "students between lectures" };
+  if (profile === "commuter") return { audience: "HYBRID_WORKER", persona: "hybrid and remote workers on a midday break" };
+  return { audience: "GENERAL", persona: "parents and flexible-schedule locals free during school hours" };
+}
+
+function gapRationale(mechanicName: string, clubName: string, gap: CapacityGap, persona: string, roi: number) {
+  return `${clubName}'s ${gap.dayLabel} ${formatHourRange(gap.hourStart, gap.hourEnd)} window is running at ${gap.avgUtilPct}% utilisation — well below the 40% healthy threshold seen on the capacity heatmap. Targeting ${persona} with ${mechanicName} in this specific slot is projected to lift attendance and deliver ${roi}% ROI.`;
+}
+
 export async function seedDatabase(log: (msg: string) => void = console.log) {
   log("Seeding PromoIQ demo data…");
 
@@ -104,8 +180,12 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
   // ---- Club utilisation (day 0-6, hour 6-22) ----
   log("Seeding club utilisation…");
+  const profileForClub = new Map<string, UtilProfile>();
+  clubs.forEach((club, i) => profileForClub.set(club.id, UTIL_PROFILES[i % UTIL_PROFILES.length]));
+
   const utilRows: { clubId: string; dayOfWeek: number; hour: number; utilisationPct: number }[] = [];
   for (const club of clubs) {
+    const profile = profileForClub.get(club.id)!;
     for (let day = 0; day <= 6; day++) {
       const isWeekend = day === 0 || day === 6;
       for (let hour = 6; hour <= 22; hour++) {
@@ -121,6 +201,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         } else {
           base = 22;
         }
+        base *= profileMultiplier(profile, day, hour, isWeekend);
         const jitter = seededRange(`util-${club.id}-${day}-${hour}`, -6, 6);
         utilRows.push({ clubId: club.id, dayOfWeek: day, hour, utilisationPct: Math.max(4, Math.min(98, Math.round(base + jitter))) });
       }
@@ -129,6 +210,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
   await prisma.clubUtilization.createMany({ data: utilRows });
 
   const clubUtilSummary = new Map<string, { peak: number; offPeak: number }>();
+  const clubGaps = new Map<string, CapacityGap>();
   for (const club of clubs) {
     const rows = utilRows.filter((r) => r.clubId === club.id);
     const peakRows = rows.filter((r) => r.hour >= 17 && r.hour <= 20);
@@ -137,6 +219,8 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       peak: peakRows.reduce((s, r) => s + r.utilisationPct, 0) / peakRows.length,
       offPeak: offPeakRows.reduce((s, r) => s + r.utilisationPct, 0) / offPeakRows.length,
     });
+    const gap = findWeekdayDaytimeGap(rows);
+    if (gap) clubGaps.set(club.id, gap);
   }
 
   // ---- Portfolio monthly metrics (Jan 2025 - Aug 2026) ----
@@ -204,17 +288,37 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     })),
   ];
 
+  // Clubs with a detected gap, worst utilisation first — utilisation-mechanic
+  // campaigns cycle through this list so every one of them targets a real,
+  // measured gap instead of a randomly picked club.
+  const gapClubOrder = clubs
+    .filter((c) => clubGaps.has(c.id))
+    .sort((a, b) => clubGaps.get(a.id)!.avgUtilPct - clubGaps.get(b.id)!.avgUtilPct);
+  let gapClubCursor = 0;
+
   const createdCampaigns = [];
 
   for (let i = 0; i < plannedCampaigns.length; i++) {
     const plan = plannedCampaigns[i];
     const seed = `campaign-${i}`;
-    const club = pick(`${seed}-club`, clubs);
     const mechanic = pick(`${seed}-mechanic`, mechanics);
-    const audienceOptions = AUDIENCE_FOR_MECHANIC[mechanic.name] ?? ["GENERAL"];
-    const audience = pick(`${seed}-audience`, audienceOptions);
+
+    let club = pick(`${seed}-club`, clubs);
+    let audience = pick(`${seed}-audience`, AUDIENCE_FOR_MECHANIC[mechanic.name] ?? ["GENERAL"]);
+    let gap: CapacityGap | null = null;
+    let persona: string | null = null;
+
+    if (mechanic.category === "UTILISATION" && gapClubOrder.length > 0) {
+      club = gapClubOrder[gapClubCursor % gapClubOrder.length];
+      gapClubCursor += 1;
+      gap = clubGaps.get(club.id)!;
+      const cohort = cohortForGap(profileForClub.get(club.id)!);
+      audience = cohort.audience;
+      persona = cohort.persona;
+    }
+
     const objectiveOptions = OBJECTIVES_FOR_MECHANIC[mechanic.name] ?? ["MAXIMISE_INCREMENTAL_JOINS"];
-    const objective = pick(`${seed}-objective`, objectiveOptions);
+    const objective = gap ? "FILL_OFF_PEAK_CAPACITY" : pick(`${seed}-objective`, objectiveOptions);
 
     const budget = Math.round(seededRange(`${seed}-budget`, 3000, 42000) / 500) * 500;
     // NEEDS_ATTENTION and REJECTED are allowed to land on weak parameter
@@ -224,16 +328,21 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     const healthy = plan.status !== "NEEDS_ATTENTION" && plan.status !== "REJECTED";
     const incentiveDepthPct = Math.round(seededRange(`${seed}-depth`, healthy ? 25 : 10, healthy ? 55 : 60));
     const durationWeeks = Math.round(seededRange(`${seed}-duration`, healthy ? 4 : 2, 8));
-    const offPeakOnly = mechanic.category === "UTILISATION" && seededRandom(`${seed}-offpeak`) > 0.35;
+    const offPeakOnly = gap !== null || (mechanic.category === "UTILISATION" && seededRandom(`${seed}-offpeak`) > 0.35);
 
     const util = clubUtilSummary.get(club.id)!;
+    // When this campaign is targeting a detected gap, feed the elasticity
+    // model that specific window's utilisation rather than the club's
+    // broader off-peak average, so the predicted ROI is computed against
+    // the exact number shown on the Analytics heatmap.
+    const currentOffPeakUtilPct = gap ? gap.avgUtilPct : util.offPeak;
     const sim = simulateCampaign({
       mechanicCategory: mechanic.category,
       incentiveDepthPct,
       durationWeeks,
       budgetGbp: budget,
       offPeakOnly,
-      club: { peakCapacity: club.peakCapacity, currentPeakUtilPct: util.peak, currentOffPeakUtilPct: util.offPeak },
+      club: { peakCapacity: club.peakCapacity, currentPeakUtilPct: util.peak, currentOffPeakUtilPct },
       guardrails: {},
     });
 
@@ -245,7 +354,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
     const campaign = await prisma.campaign.create({
       data: {
-        name: `${club.name} ${mechanic.name}`,
+        name: gap ? `${club.name} Weekday Daytime — ${mechanic.name}` : `${club.name} ${mechanic.name}`,
         objective: objective as never,
         status: plan.status,
         audienceType: audience as never,
@@ -261,7 +370,10 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         predictedRoi: sim.predictedRoiPct,
         predictedRetention: sim.predictedRetentionPct,
         confidence,
-        aiRationale: rationale(mechanic.name, club.name, objective, sim.predictedRoiPct),
+        aiRationale:
+          gap && persona
+            ? gapRationale(mechanic.name, club.name, gap, persona, sim.predictedRoiPct)
+            : rationale(mechanic.name, club.name, objective, sim.predictedRoiPct),
         minRoiGuardrail: plan.status === "NEEDS_ATTENTION" ? Math.round(seededRange(`${seed}-minroi`, 15, 30)) : null,
         maxPeakOccupancyGuardrail: plan.status === "NEEDS_ATTENTION" ? Math.round(seededRange(`${seed}-maxpeak`, 85, 95)) : null,
         actualJoins: isPast ? Math.round(sim.predictedJoins * noise) : null,

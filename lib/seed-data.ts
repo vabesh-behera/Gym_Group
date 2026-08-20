@@ -259,7 +259,15 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
   type PlannedCampaign = {
     status: "COMPLETED" | "ACTIVE" | "RECOMMENDED" | "NEEDS_ATTENTION" | "ACCEPTED" | "REJECTED";
     startDate: Date;
+    // When set, this campaign MUST target this club's detected low-utilisation
+    // window — not just opportunistically, but guaranteed, so every club with
+    // a real gap has a live, actionable RECOMMENDED campaign closing it.
+    forcedClubId?: string;
   };
+
+  const gapClubsWorstFirst = clubs
+    .filter((c) => clubGaps.has(c.id))
+    .sort((a, b) => clubGaps.get(a.id)!.avgUtilPct - clubGaps.get(b.id)!.avgUtilPct);
 
   const plannedCampaigns: PlannedCampaign[] = [
     ...Array.from({ length: 15 }, (_, i) => ({
@@ -270,9 +278,19 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       status: "ACTIVE" as const,
       startDate: new Date(TODAY.getTime() - (3 + i * 4) * dayMs),
     })),
-    ...Array.from({ length: 6 }, (_, i) => ({
+    // One guaranteed off-peak recommendation per club with a detected gap —
+    // this is what makes every low-utilisation window shown on the Analytics
+    // heatmap traceable to a specific, actionable campaign in Planning.
+    ...gapClubsWorstFirst.map((c, i) => ({
       status: "RECOMMENDED" as const,
-      startDate: new Date(TODAY.getTime() + (7 + i * 9) * dayMs),
+      startDate: new Date(TODAY.getTime() + (7 + i * 5) * dayMs),
+      forcedClubId: c.id,
+    })),
+    // A handful of general recommendations (acquisition, referral, etc.) so
+    // Planning isn't 100% capacity-gap campaigns.
+    ...Array.from({ length: 3 }, (_, i) => ({
+      status: "RECOMMENDED" as const,
+      startDate: new Date(TODAY.getTime() + (60 + i * 9) * dayMs),
     })),
     ...Array.from({ length: 4 }, (_, i) => ({
       status: "NEEDS_ATTENTION" as const,
@@ -288,12 +306,10 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     })),
   ];
 
-  // Clubs with a detected gap, worst utilisation first — utilisation-mechanic
-  // campaigns cycle through this list so every one of them targets a real,
-  // measured gap instead of a randomly picked club.
-  const gapClubOrder = clubs
-    .filter((c) => clubGaps.has(c.id))
-    .sort((a, b) => clubGaps.get(a.id)!.avgUtilPct - clubGaps.get(b.id)!.avgUtilPct);
+  // Outside the guaranteed slots above, utilisation-mechanic campaigns still
+  // cycle through clubs by gap severity (worst first) rather than picking a
+  // club at random, so even the historical/other-status campaigns are
+  // grounded in a real measured gap where possible.
   let gapClubCursor = 0;
 
   const createdCampaigns = [];
@@ -301,20 +317,34 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
   for (let i = 0; i < plannedCampaigns.length; i++) {
     const plan = plannedCampaigns[i];
     const seed = `campaign-${i}`;
-    const mechanic = pick(`${seed}-mechanic`, mechanics);
 
-    let club = pick(`${seed}-club`, clubs);
-    let audience = pick(`${seed}-audience`, AUDIENCE_FOR_MECHANIC[mechanic.name] ?? ["GENERAL"]);
+    let club: (typeof clubs)[number];
+    let mechanic: (typeof mechanics)[number];
+    let audience: string;
     let gap: CapacityGap | null = null;
     let persona: string | null = null;
 
-    if (mechanic.category === "UTILISATION" && gapClubOrder.length > 0) {
-      club = gapClubOrder[gapClubCursor % gapClubOrder.length];
-      gapClubCursor += 1;
+    if (plan.forcedClubId) {
+      club = clubs.find((c) => c.id === plan.forcedClubId)!;
       gap = clubGaps.get(club.id)!;
+      const utilisationMechanics = mechanics.filter((m) => m.category === "UTILISATION");
+      mechanic = pick(`${seed}-mechanic`, utilisationMechanics.length > 0 ? utilisationMechanics : mechanics);
       const cohort = cohortForGap(profileForClub.get(club.id)!);
       audience = cohort.audience;
       persona = cohort.persona;
+    } else {
+      mechanic = pick(`${seed}-mechanic`, mechanics);
+      club = pick(`${seed}-club`, clubs);
+      audience = pick(`${seed}-audience`, AUDIENCE_FOR_MECHANIC[mechanic.name] ?? ["GENERAL"]);
+
+      if (mechanic.category === "UTILISATION" && gapClubsWorstFirst.length > 0) {
+        club = gapClubsWorstFirst[gapClubCursor % gapClubsWorstFirst.length];
+        gapClubCursor += 1;
+        gap = clubGaps.get(club.id)!;
+        const cohort = cohortForGap(profileForClub.get(club.id)!);
+        audience = cohort.audience;
+        persona = cohort.persona;
+      }
     }
 
     const objectiveOptions = OBJECTIVES_FOR_MECHANIC[mechanic.name] ?? ["MAXIMISE_INCREMENTAL_JOINS"];

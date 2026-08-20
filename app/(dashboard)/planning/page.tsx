@@ -114,7 +114,14 @@ function RecommendationTable({ campaigns, emptyText }: { campaigns: PlanningCamp
           {campaigns.map((c) => (
             <tr key={c.id} className="border-b border-border align-top last:border-0">
               <td className="max-w-xs px-6 py-3.5">
-                <p className="text-sm font-bold text-slate-900">{c.name}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-bold text-slate-900">{c.name}</p>
+                  {c.mechanic.category === "UTILISATION" && (
+                    <Badge tone="accent" className="shrink-0">
+                      🎯 Targets Capacity Gap
+                    </Badge>
+                  )}
+                </div>
                 <p className="mt-0.5 text-xs font-medium text-accent-dark">{offerLine(c)}</p>
                 <p className="mt-1 text-xs text-slate-600">{c.club?.name ?? c.region?.name}</p>
                 <p className="mt-1 line-clamp-2 text-xs text-muted">{c.aiRationale}</p>

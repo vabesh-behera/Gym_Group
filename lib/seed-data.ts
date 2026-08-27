@@ -332,6 +332,17 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       const cohort = cohortForGap(profileForClub.get(club.id)!);
       audience = cohort.audience;
       persona = cohort.persona;
+
+      // Bedford: a hand-specified worked example (steep daytime discount for
+      // flexible-schedule locals — parents, retirees, carers — in the exact
+      // weekday 9am-12pm window the heatmap flags), rather than the generic
+      // profile-driven pick, so there's one concrete, fully-specified case in
+      // the data alongside the general pattern.
+      if (club.name === "Bedford") {
+        mechanic = mechanics.find((m) => m.name === "Daytime Access Pass") ?? mechanic;
+        audience = "GENERAL";
+        persona = "stay-at-home parents, retirees, and other flexible-schedule locals";
+      }
     } else {
       mechanic = pick(`${seed}-mechanic`, mechanics);
       club = pick(`${seed}-club`, clubs);
@@ -350,14 +361,15 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     const objectiveOptions = OBJECTIVES_FOR_MECHANIC[mechanic.name] ?? ["MAXIMISE_INCREMENTAL_JOINS"];
     const objective = gap ? "FILL_OFF_PEAK_CAPACITY" : pick(`${seed}-objective`, objectiveOptions);
 
-    const budget = Math.round(seededRange(`${seed}-budget`, 3000, 42000) / 500) * 500;
+    const isBedfordExample = plan.forcedClubId !== undefined && club.name === "Bedford";
+    const budget = isBedfordExample ? 12000 : Math.round(seededRange(`${seed}-budget`, 3000, 42000) / 500) * 500;
     // NEEDS_ATTENTION and REJECTED are allowed to land on weak parameter
     // combos (that's literally why they need review / got turned down).
     // Every other status — including RECOMMENDED — is an "AI recommendation"
     // and should never be seeded with a predictably negative ROI.
     const healthy = plan.status !== "NEEDS_ATTENTION" && plan.status !== "REJECTED";
-    const incentiveDepthPct = Math.round(seededRange(`${seed}-depth`, healthy ? 25 : 10, healthy ? 55 : 60));
-    const durationWeeks = Math.round(seededRange(`${seed}-duration`, healthy ? 4 : 2, 8));
+    const incentiveDepthPct = isBedfordExample ? 50 : Math.round(seededRange(`${seed}-depth`, healthy ? 25 : 10, healthy ? 55 : 60));
+    const durationWeeks = isBedfordExample ? 6 : Math.round(seededRange(`${seed}-duration`, healthy ? 4 : 2, 8));
     const offPeakOnly = gap !== null || (mechanic.category === "UTILISATION" && seededRandom(`${seed}-offpeak`) > 0.35);
 
     const util = clubUtilSummary.get(club.id)!;

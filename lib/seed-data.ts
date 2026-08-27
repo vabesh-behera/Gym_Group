@@ -278,14 +278,17 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       status: "ACTIVE" as const,
       startDate: new Date(TODAY.getTime() - (3 + i * 4) * dayMs),
     })),
-    // One guaranteed off-peak recommendation per club with a detected gap —
-    // this is what makes every low-utilisation window shown on the Analytics
-    // heatmap traceable to a specific, actionable campaign in Planning.
-    ...gapClubsWorstFirst.map((c, i) => ({
-      status: "RECOMMENDED" as const,
-      startDate: new Date(TODAY.getTime() + (7 + i * 5) * dayMs),
-      forcedClubId: c.id,
-    })),
+    // Bedford is the one deliberately worked example: a guaranteed, fully
+    // specified AI Recommended campaign closing its detected gap. Every
+    // other club's gap is left as-is — surfaced as a Calendar Gap, not
+    // auto-converted into a campaign — so the difference between "AI flagged
+    // an opportunity" and "AI recommended a specific campaign for it" stays
+    // visible instead of guaranteeing coverage everywhere.
+    ...(() => {
+      const bedford = clubs.find((c) => c.name === "Bedford");
+      if (!bedford || !clubGaps.has(bedford.id)) return [];
+      return [{ status: "RECOMMENDED" as const, startDate: new Date(TODAY.getTime() + 7 * dayMs), forcedClubId: bedford.id }];
+    })(),
     // A handful of general recommendations (acquisition, referral, etc.) so
     // Planning isn't 100% capacity-gap campaigns.
     ...Array.from({ length: 3 }, (_, i) => ({

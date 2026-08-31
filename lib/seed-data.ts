@@ -288,6 +288,11 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     // window — not just opportunistically, but guaranteed, so every club with
     // a real gap has a live, actionable RECOMMENDED campaign closing it.
     forcedClubId?: string;
+    // When set, this campaign MUST use a UTILISATION mechanic — guaranteeing
+    // it lands in the gap/cohort-targeting path below (Gen Z, homemakers,
+    // retirees, hybrid workers) — rather than leaving cohort variety to
+    // chance on a random mechanic pick across the whole catalogue.
+    forceCohort?: boolean;
   };
 
   const gapClubsWorstFirst = clubs
@@ -299,9 +304,15 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       status: "COMPLETED" as const,
       startDate: new Date(TODAY.getTime() - (30 + i * 34) * dayMs),
     })),
-    ...Array.from({ length: 5 }, (_, i) => ({
+    // 7 running campaigns: 5 deliberately cycle through the gap-cohort
+    // targeting (Gen Z, homemakers, retirees, hybrid workers) instead of
+    // leaving audience mix to chance, so the in-flight monitor actually shows
+    // the cohort variety the recommendation engine is capable of — not just
+    // whichever mechanic happened to be picked at random.
+    ...Array.from({ length: 7 }, (_, i) => ({
       status: "ACTIVE" as const,
-      startDate: new Date(TODAY.getTime() - (3 + i * 4) * dayMs),
+      startDate: new Date(TODAY.getTime() - (2 + i * 3) * dayMs),
+      forceCohort: i < 5,
     })),
     // Bedford is the one deliberately worked example: a guaranteed, fully
     // specified AI Recommended campaign closing its detected gap. Every
@@ -375,7 +386,8 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         persona = "homemakers, retirees, and other flexible-schedule locals";
       }
     } else {
-      mechanic = pick(`${seed}-mechanic`, mechanics);
+      const utilisationMechanics = mechanics.filter((m) => m.category === "UTILISATION");
+      mechanic = plan.forceCohort && utilisationMechanics.length > 0 ? pick(`${seed}-mechanic`, utilisationMechanics) : pick(`${seed}-mechanic`, mechanics);
       club = pick(`${seed}-club`, clubs);
       audience = pick(`${seed}-audience`, AUDIENCE_FOR_MECHANIC[mechanic.name] ?? ["GENERAL"]);
 

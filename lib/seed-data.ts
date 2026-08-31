@@ -102,10 +102,31 @@ function findWeekdayDaytimeGap(rows: { dayOfWeek: number; hour: number; utilisat
   return { hourStart: best.start, hourEnd: best.start + 3, avgUtilPct: Math.round(best.avg), dayLabel: "weekday" };
 }
 
-function cohortForGap(profile: UtilProfile): { audience: "STUDENT" | "HYBRID_WORKER" | "GENERAL"; persona: string } {
-  if (profile === "campus") return { audience: "STUDENT", persona: "students between lectures" };
+type Cohort = {
+  audience: "STUDENT" | "HYBRID_WORKER" | "GENERAL";
+  persona: string;
+  // When set, this cohort's offer is defined by a specific mechanic/incentive
+  // depth rather than the default random UTILISATION pick — e.g. homemakers
+  // get a joining-fee discount, not an access-window restriction.
+  mechanicOverrideName?: string;
+  forcedIncentiveDepthPct?: number;
+};
+
+function cohortForGap(profile: UtilProfile, clubIndex: number): Cohort {
+  if (profile === "campus") return { audience: "STUDENT", persona: "Gen Z students between lectures" };
   if (profile === "commuter") return { audience: "HYBRID_WORKER", persona: "hybrid and remote workers on a midday break" };
-  return { audience: "GENERAL", persona: "parents and flexible-schedule locals free during school hours" };
+  // Suburban clubs split across two distinct daytime cohorts — homemakers and
+  // retirees — rather than one generic "parents" bucket, so both show up on
+  // the calendar somewhere instead of being collapsed into a single persona.
+  if (clubIndex % 2 === 0) {
+    return {
+      audience: "GENERAL",
+      persona: "homemakers and stay-at-home parents free during school hours",
+      mechanicOverrideName: "£0 Joining Fee",
+      forcedIncentiveDepthPct: 50,
+    };
+  }
+  return { audience: "GENERAL", persona: "retirees and other older members with flexible daytime schedules" };
 }
 
 function gapRationale(mechanicName: string, clubName: string, gap: CapacityGap, persona: string, roi: number) {
@@ -181,7 +202,11 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
   // ---- Club utilisation (day 0-6, hour 6-22) ----
   log("Seeding club utilisation…");
   const profileForClub = new Map<string, UtilProfile>();
-  clubs.forEach((club, i) => profileForClub.set(club.id, UTIL_PROFILES[i % UTIL_PROFILES.length]));
+  const clubIndexById = new Map<string, number>();
+  clubs.forEach((club, i) => {
+    profileForClub.set(club.id, UTIL_PROFILES[i % UTIL_PROFILES.length]);
+    clubIndexById.set(club.id, i);
+  });
 
   const utilRows: { clubId: string; dayOfWeek: number; hour: number; utilisationPct: number }[] = [];
   for (const club of clubs) {
@@ -326,25 +351,28 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     let audience: string;
     let gap: CapacityGap | null = null;
     let persona: string | null = null;
+    let forcedIncentiveDepthPct: number | null = null;
 
     if (plan.forcedClubId) {
       club = clubs.find((c) => c.id === plan.forcedClubId)!;
       gap = clubGaps.get(club.id)!;
       const utilisationMechanics = mechanics.filter((m) => m.category === "UTILISATION");
       mechanic = pick(`${seed}-mechanic`, utilisationMechanics.length > 0 ? utilisationMechanics : mechanics);
-      const cohort = cohortForGap(profileForClub.get(club.id)!);
+      const cohort = cohortForGap(profileForClub.get(club.id)!, clubIndexById.get(club.id)!);
       audience = cohort.audience;
       persona = cohort.persona;
+      if (cohort.mechanicOverrideName) mechanic = mechanics.find((m) => m.name === cohort.mechanicOverrideName) ?? mechanic;
+      if (cohort.forcedIncentiveDepthPct !== undefined) forcedIncentiveDepthPct = cohort.forcedIncentiveDepthPct;
 
-      // Bedford: a hand-specified worked example (steep daytime discount for
-      // flexible-schedule locals — parents, retirees, carers — in the exact
-      // weekday 9am-12pm window the heatmap flags), rather than the generic
-      // profile-driven pick, so there's one concrete, fully-specified case in
-      // the data alongside the general pattern.
+      // Bedford: a hand-specified worked example — a joining-fee discount
+      // aimed squarely at homemakers and other flexible-schedule locals in
+      // the exact weekday 9am-12pm window the heatmap flags — rather than
+      // the generic profile-driven pick, so there's one concrete, fully
+      // specified case in the data alongside the general cohort pattern.
       if (club.name === "Bedford") {
-        mechanic = mechanics.find((m) => m.name === "Daytime Access Pass") ?? mechanic;
+        mechanic = mechanics.find((m) => m.name === "£0 Joining Fee") ?? mechanic;
         audience = "GENERAL";
-        persona = "stay-at-home parents, retirees, and other flexible-schedule locals";
+        persona = "homemakers, retirees, and other flexible-schedule locals";
       }
     } else {
       mechanic = pick(`${seed}-mechanic`, mechanics);
@@ -355,9 +383,11 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         club = gapClubsWorstFirst[gapClubCursor % gapClubsWorstFirst.length];
         gapClubCursor += 1;
         gap = clubGaps.get(club.id)!;
-        const cohort = cohortForGap(profileForClub.get(club.id)!);
+        const cohort = cohortForGap(profileForClub.get(club.id)!, clubIndexById.get(club.id)!);
         audience = cohort.audience;
         persona = cohort.persona;
+        if (cohort.mechanicOverrideName) mechanic = mechanics.find((m) => m.name === cohort.mechanicOverrideName) ?? mechanic;
+        if (cohort.forcedIncentiveDepthPct !== undefined) forcedIncentiveDepthPct = cohort.forcedIncentiveDepthPct;
       }
     }
 
@@ -371,7 +401,9 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     // Every other status — including RECOMMENDED — is an "AI recommendation"
     // and should never be seeded with a predictably negative ROI.
     const healthy = plan.status !== "NEEDS_ATTENTION" && plan.status !== "REJECTED";
-    const incentiveDepthPct = isBedfordExample ? 50 : Math.round(seededRange(`${seed}-depth`, healthy ? 25 : 10, healthy ? 55 : 60));
+    const incentiveDepthPct = isBedfordExample
+      ? 50
+      : (forcedIncentiveDepthPct ?? Math.round(seededRange(`${seed}-depth`, healthy ? 25 : 10, healthy ? 55 : 60)));
     const durationWeeks = isBedfordExample ? 6 : Math.round(seededRange(`${seed}-duration`, healthy ? 4 : 2, 8));
     const offPeakOnly = gap !== null || (mechanic.category === "UTILISATION" && seededRandom(`${seed}-offpeak`) > 0.35);
 

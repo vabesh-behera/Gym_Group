@@ -104,6 +104,10 @@ function findWeekdayDaytimeGap(rows: { dayOfWeek: number; hour: number; utilisat
 
 type Cohort = {
   audience: "STUDENT" | "HYBRID_WORKER" | "GENERAL";
+  // Short, named cohort tag shown in the campaign name and rationale — the
+  // audience enum alone can't distinguish e.g. Homemakers from Retirees,
+  // since both map to the generic GENERAL bucket.
+  cohortLabel: string;
   persona: string;
   // When set, this cohort's offer is defined by a specific mechanic/incentive
   // depth rather than the default random UTILISATION pick — e.g. homemakers
@@ -113,24 +117,26 @@ type Cohort = {
 };
 
 function cohortForGap(profile: UtilProfile, clubIndex: number): Cohort {
-  if (profile === "campus") return { audience: "STUDENT", persona: "Gen Z students between lectures" };
-  if (profile === "commuter") return { audience: "HYBRID_WORKER", persona: "hybrid and remote workers on a midday break" };
+  if (profile === "campus") return { audience: "STUDENT", cohortLabel: "Gen Z", persona: "Gen Z students between lectures" };
+  if (profile === "commuter")
+    return { audience: "HYBRID_WORKER", cohortLabel: "Hybrid Workers", persona: "hybrid and remote workers on a midday break" };
   // Suburban clubs split across two distinct daytime cohorts — homemakers and
   // retirees — rather than one generic "parents" bucket, so both show up on
   // the calendar somewhere instead of being collapsed into a single persona.
   if (clubIndex % 2 === 0) {
     return {
       audience: "GENERAL",
+      cohortLabel: "Homemakers",
       persona: "homemakers and stay-at-home parents free during school hours",
       mechanicOverrideName: "£0 Joining Fee",
       forcedIncentiveDepthPct: 50,
     };
   }
-  return { audience: "GENERAL", persona: "retirees and other older members with flexible daytime schedules" };
+  return { audience: "GENERAL", cohortLabel: "Retirees", persona: "retirees and other older members with flexible daytime schedules" };
 }
 
-function gapRationale(mechanicName: string, clubName: string, gap: CapacityGap, persona: string, roi: number) {
-  return `${clubName}'s ${gap.dayLabel} ${formatHourRange(gap.hourStart, gap.hourEnd)} window is running at ${gap.avgUtilPct}% utilisation — well below the 40% healthy threshold seen on the capacity heatmap. Targeting ${persona} with ${mechanicName} in this specific slot is projected to lift attendance and deliver ${roi}% ROI.`;
+function gapRationale(mechanicName: string, clubName: string, gap: CapacityGap, cohortLabel: string, persona: string, roi: number) {
+  return `${cohortLabel} — ${persona} — are underusing ${clubName}'s ${gap.dayLabel} ${formatHourRange(gap.hourStart, gap.hourEnd)} window, at just ${gap.avgUtilPct}% utilisation (well below the 40% healthy threshold). ${mechanicName} targeted at this cohort in this specific slot is projected to lift attendance and deliver ${roi}% ROI.`;
 }
 
 export async function seedDatabase(log: (msg: string) => void = console.log) {
@@ -309,11 +315,20 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
   // Calendar Gap rather than auto-converted into a campaign.
   const FORCED_COHORT_EXAMPLES: Record<
     string,
-    { mechanicName: string; audience: "GENERAL" | "STUDENT"; persona: string; incentiveDepthPct: number; budget: number; durationWeeks: number }
+    {
+      mechanicName: string;
+      audience: "GENERAL" | "STUDENT";
+      cohortLabel: string;
+      persona: string;
+      incentiveDepthPct: number;
+      budget: number;
+      durationWeeks: number;
+    }
   > = {
     Bedford: {
       mechanicName: "Daytime Access Pass",
       audience: "GENERAL",
+      cohortLabel: "Homemakers",
       persona: "homemakers, retirees, and other flexible-schedule locals",
       incentiveDepthPct: 50,
       budget: 12000,
@@ -322,6 +337,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     Basingstoke: {
       mechanicName: "Daytime Access Pass",
       audience: "STUDENT",
+      cohortLabel: "Gen Z",
       persona: "Gen Z students between lectures",
       incentiveDepthPct: 50,
       budget: 9000,
@@ -386,6 +402,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     let audience: string;
     let gap: CapacityGap | null = null;
     let persona: string | null = null;
+    let cohortLabel: string | null = null;
     let forcedIncentiveDepthPct: number | null = null;
 
     if (plan.forcedClubId) {
@@ -395,6 +412,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       if (example) {
         mechanic = mechanics.find((m) => m.name === example.mechanicName) ?? mechanics[0];
         audience = example.audience;
+        cohortLabel = example.cohortLabel;
         persona = example.persona;
       } else {
         // Defensive fallback — every forcedClubId currently comes from
@@ -404,6 +422,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         mechanic = pick(`${seed}-mechanic`, utilisationMechanics.length > 0 ? utilisationMechanics : mechanics);
         const cohort = cohortForGap(profileForClub.get(club.id)!, clubIndexById.get(club.id)!);
         audience = cohort.audience;
+        cohortLabel = cohort.cohortLabel;
         persona = cohort.persona;
         if (cohort.mechanicOverrideName) mechanic = mechanics.find((m) => m.name === cohort.mechanicOverrideName) ?? mechanic;
         if (cohort.forcedIncentiveDepthPct !== undefined) forcedIncentiveDepthPct = cohort.forcedIncentiveDepthPct;
@@ -420,6 +439,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         gap = clubGaps.get(club.id)!;
         const cohort = cohortForGap(profileForClub.get(club.id)!, clubIndexById.get(club.id)!);
         audience = cohort.audience;
+        cohortLabel = cohort.cohortLabel;
         persona = cohort.persona;
         if (cohort.mechanicOverrideName) mechanic = mechanics.find((m) => m.name === cohort.mechanicOverrideName) ?? mechanic;
         if (cohort.forcedIncentiveDepthPct !== undefined) forcedIncentiveDepthPct = cohort.forcedIncentiveDepthPct;
@@ -466,7 +486,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
     const campaign = await prisma.campaign.create({
       data: {
-        name: gap ? `${club.name} Weekday Daytime — ${mechanic.name}` : `${club.name} ${mechanic.name}`,
+        name: gap ? `${club.name} Weekday Daytime — ${mechanic.name} (${cohortLabel})` : `${club.name} ${mechanic.name}`,
         objective: objective as never,
         status: plan.status,
         audienceType: audience as never,
@@ -483,8 +503,8 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         predictedRetention: sim.predictedRetentionPct,
         confidence,
         aiRationale:
-          gap && persona
-            ? gapRationale(mechanic.name, club.name, gap, persona, sim.predictedRoiPct)
+          gap && persona && cohortLabel
+            ? gapRationale(mechanic.name, club.name, gap, cohortLabel, persona, sim.predictedRoiPct)
             : rationale(mechanic.name, club.name, objective, sim.predictedRoiPct),
         minRoiGuardrail: plan.status === "NEEDS_ATTENTION" ? Math.round(seededRange(`${seed}-minroi`, 15, 30)) : null,
         maxPeakOccupancyGuardrail: plan.status === "NEEDS_ATTENTION" ? Math.round(seededRange(`${seed}-maxpeak`, 85, 95)) : null,

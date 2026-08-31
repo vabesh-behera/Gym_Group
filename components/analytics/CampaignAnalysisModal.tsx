@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { formatGBP, formatNumber } from "@/lib/format";
+import { formatGBP, formatNumber, campaignDisplayName } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 type Tier = {
@@ -125,7 +125,7 @@ export function CampaignAnalysisModal({
                         tier.campaigns.map((c) => (
                           <div key={c.id} className="flex items-center justify-between text-xs">
                             <span className="truncate pr-2 font-medium text-slate-700">
-                              {c.name} <span className="text-muted">· {c.club}</span>
+                              {campaignDisplayName(c.name)} <span className="text-muted">· {c.club}</span>
                             </span>
                             <span className={cn("shrink-0 font-semibold", style.text)}>{c.roi}%</span>
                           </div>

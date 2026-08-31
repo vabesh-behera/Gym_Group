@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { CampaignActions } from "@/components/planning/CampaignActions";
 import { getPlanningData } from "@/lib/data/planning";
 import { parseFilters, getFilterOptions } from "@/lib/data/filters";
-import { formatGBP, formatNumber, formatDate } from "@/lib/format";
+import { formatGBP, formatNumber, formatDate, splitCohortLabel } from "@/lib/format";
 import { OBJECTIVE_LABELS, AUDIENCE_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/cn";
 
@@ -17,7 +17,8 @@ function durationWeeks(c: { startDate: Date; endDate: Date }) {
 }
 
 function offerLine(c: PlanningCampaign) {
-  return `${c.mechanic.howItWorks} · ${Math.round(c.incentiveValue)}% incentive depth · ${AUDIENCE_LABELS[c.audienceType]}`;
+  const { cohortLabel } = splitCohortLabel(c.name);
+  return `${c.mechanic.howItWorks} · ${Math.round(c.incentiveValue)}% incentive depth · ${cohortLabel ?? AUDIENCE_LABELS[c.audienceType]}`;
 }
 
 export default async function PlanningPage({
@@ -115,7 +116,7 @@ function RecommendationTable({ campaigns, emptyText }: { campaigns: PlanningCamp
             <tr key={c.id} className="border-b border-border align-top last:border-0">
               <td className="max-w-xs px-6 py-3.5">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-sm font-bold text-slate-900">{c.name}</p>
+                  <p className="text-sm font-bold text-slate-900">{splitCohortLabel(c.name).displayName}</p>
                   {c.mechanic.category === "UTILISATION" && (
                     <Badge tone="accent" className="shrink-0">
                       🎯 Targets Capacity Gap

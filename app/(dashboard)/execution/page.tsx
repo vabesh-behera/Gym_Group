@@ -6,7 +6,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { MonitorTable } from "@/components/execution/MonitorTable";
 import { getExecutionData } from "@/lib/data/execution";
 import { parseFilters, getFilterOptions } from "@/lib/data/filters";
-import { formatGBP, formatNumber } from "@/lib/format";
+import { formatGBP, formatNumber, campaignDisplayName } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 export default async function ExecutionPage({
@@ -67,7 +67,7 @@ export default async function ExecutionPage({
             {data.monitored.map((m) => (
               <div key={m.id}>
                 <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="font-semibold text-slate-800">{m.name}</span>
+                  <span className="font-semibold text-slate-800">{campaignDisplayName(m.name)}</span>
                   <span className="text-xs text-muted">
                     {m.club} · D{m.dayOfFlight}/{m.totalDays}
                   </span>

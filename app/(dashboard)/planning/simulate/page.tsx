@@ -8,6 +8,7 @@ import { getPlanningData } from "@/lib/data/planning";
 import { getSimulationBootstrap } from "@/lib/data/simulation";
 import { parseFilters, getFilterOptions } from "@/lib/data/filters";
 import { CAMPAIGN_STATUS_LABELS } from "@/lib/constants";
+import { campaignDisplayName } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 const STATUS_TONE = { RECOMMENDED: "accent", NEEDS_ATTENTION: "warning", ACCEPTED: "navy" } as const;
@@ -63,7 +64,7 @@ export default async function SimulationIndexPage({
                     className={cn("block px-4 py-3 transition", c.id === campaignId ? "bg-navy text-white" : "hover:bg-slate-50")}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold">{c.name}</p>
+                      <p className="text-sm font-semibold">{campaignDisplayName(c.name)}</p>
                       <Badge tone={STATUS_TONE[c.status as keyof typeof STATUS_TONE] ?? "neutral"} className="shrink-0">
                         {CAMPAIGN_STATUS_LABELS[c.status] ?? c.status}
                       </Badge>
@@ -84,7 +85,7 @@ export default async function SimulationIndexPage({
                       Planning
                     </Link>
                     <span className="mx-1.5">/</span>
-                    <span className="font-semibold text-slate-800">Simulation: {bootstrap.campaign.name}</span>
+                    <span className="font-semibold text-slate-800">Simulation: {campaignDisplayName(bootstrap.campaign.name)}</span>
                   </p>
                   <SimulationClient campaign={bootstrap.campaign} mechanics={bootstrap.mechanics} clubs={bootstrap.clubOptions} />
                 </>

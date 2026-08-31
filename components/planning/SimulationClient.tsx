@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Select } from "@/components/ui/Select";
 import { simulateCampaign, type SimulationResult } from "@/lib/simulate/elasticity";
-import { formatGBP, formatNumber } from "@/lib/format";
+import { formatGBP, formatNumber, campaignDisplayName } from "@/lib/format";
 import { OBJECTIVE_LABELS } from "@/lib/constants";
 import { applySimulation } from "@/app/(dashboard)/planning/simulate/actions";
 import { decideCampaign } from "@/app/(dashboard)/planning/actions";
@@ -190,7 +190,7 @@ export function SimulationClient({
     <div className="space-y-6">
       <Card>
         <p className="text-sm text-slate-700">
-          <span className="font-bold">{campaign.name}</span> · {mechanic.name} · {durationWeeks}w · {formatGBP(budget, { compact: true })} · ROI{" "}
+          <span className="font-bold">{campaignDisplayName(campaign.name)}</span> · {mechanic.name} · {durationWeeks}w · {formatGBP(budget, { compact: true })} · ROI{" "}
           <span className={cn("font-semibold", result.predictedRoiPct >= 15 ? "text-accent-dark" : "text-critical")}>{result.predictedRoiPct}%</span>
         </p>
       </Card>

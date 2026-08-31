@@ -1,3 +1,20 @@
+// Gap-targeted campaigns carry a named cohort — Homemakers, Gen Z, Retirees —
+// more specific than the AudienceType enum can express (several cohorts
+// share the GENERAL enum value), so it's appended to the seeded campaign
+// name as "(Cohort)". Split it back out wherever a campaign name or its
+// audience is displayed, so it reads as a label rather than a name suffix.
+const COHORT_SUFFIX_RE = / \(([^()]+)\)$/;
+
+export function splitCohortLabel(campaignName: string): { displayName: string; cohortLabel: string | null } {
+  const match = campaignName.match(COHORT_SUFFIX_RE);
+  if (!match) return { displayName: campaignName, cohortLabel: null };
+  return { displayName: campaignName.slice(0, match.index), cohortLabel: match[1] };
+}
+
+export function campaignDisplayName(campaignName: string): string {
+  return splitCohortLabel(campaignName).displayName;
+}
+
 export function formatGBP(value: number, opts?: { compact?: boolean }): string {
   if (opts?.compact) {
     return new Intl.NumberFormat("en-GB", {

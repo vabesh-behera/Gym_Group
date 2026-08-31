@@ -4,7 +4,7 @@ import { Fragment, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { VolumeTrajectoryChart, type TrajectoryPoint } from "@/components/execution/VolumeTrajectoryChart";
-import { formatGBP, formatNumber, formatDate } from "@/lib/format";
+import { formatGBP, formatNumber, formatDate, campaignDisplayName } from "@/lib/format";
 import { cn } from "@/lib/cn";
 
 const HEALTH_TONE = { Healthy: "accent", Watch: "warning", Critical: "critical" } as const;
@@ -105,7 +105,7 @@ export function MonitorTable({ monitored }: { monitored: MonitoredCampaign[] }) 
                 <td className="px-6 py-3">
                   <p className="font-semibold text-slate-900">
                     <span className={cn("mr-1.5 inline-block transition-transform", isOpen && "rotate-90")}>›</span>
-                    {m.name}
+                    {campaignDisplayName(m.name)}
                   </p>
                   <p className="pl-3.5 text-xs text-muted">{m.club} · {m.mechanic}</p>
                 </td>

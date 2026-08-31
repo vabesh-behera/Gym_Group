@@ -168,7 +168,10 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
   const regionByName = new Map(regions.map((r) => [r.name, r]));
 
   // ---- Clubs ----
-  const clubs = [];
+  // Explicitly typed (rather than left to evolve from push()) because it's
+  // now read from inside a closure below (FORCED_COHORT_EXAMPLES lookup),
+  // where TS can't track an evolving array type across the function boundary.
+  const clubs: Awaited<ReturnType<typeof prisma.club.create>>[] = [];
   for (const c of CLUB_SEED) {
     const region = regionByName.get(c.region)!;
     const club = await prisma.club.create({
@@ -299,6 +302,33 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     .filter((c) => clubGaps.has(c.id))
     .sort((a, b) => clubGaps.get(a.id)!.avgUtilPct - clubGaps.get(b.id)!.avgUtilPct);
 
+  // Hand-specified worked examples — guaranteed, fully-specified AI
+  // Recommended campaigns closing a real detected gap, one per cohort,
+  // rather than leaving that cohort's representation to opportunistic
+  // chance. Every other club's gap is still left as-is, surfaced as a
+  // Calendar Gap rather than auto-converted into a campaign.
+  const FORCED_COHORT_EXAMPLES: Record<
+    string,
+    { mechanicName: string; audience: "GENERAL" | "STUDENT"; persona: string; incentiveDepthPct: number; budget: number; durationWeeks: number }
+  > = {
+    Bedford: {
+      mechanicName: "Daytime Access Pass",
+      audience: "GENERAL",
+      persona: "homemakers, retirees, and other flexible-schedule locals",
+      incentiveDepthPct: 50,
+      budget: 12000,
+      durationWeeks: 6,
+    },
+    Basingstoke: {
+      mechanicName: "Daytime Access Pass",
+      audience: "STUDENT",
+      persona: "Gen Z students between lectures",
+      incentiveDepthPct: 50,
+      budget: 9000,
+      durationWeeks: 6,
+    },
+  };
+
   const plannedCampaigns: PlannedCampaign[] = [
     ...Array.from({ length: 15 }, (_, i) => ({
       status: "COMPLETED" as const,
@@ -314,17 +344,11 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       startDate: new Date(TODAY.getTime() - (2 + i * 3) * dayMs),
       forceCohort: i < 5,
     })),
-    // Bedford is the one deliberately worked example: a guaranteed, fully
-    // specified AI Recommended campaign closing its detected gap. Every
-    // other club's gap is left as-is — surfaced as a Calendar Gap, not
-    // auto-converted into a campaign — so the difference between "AI flagged
-    // an opportunity" and "AI recommended a specific campaign for it" stays
-    // visible instead of guaranteeing coverage everywhere.
-    ...(() => {
-      const bedford = clubs.find((c) => c.name === "Bedford");
-      if (!bedford || !clubGaps.has(bedford.id)) return [];
-      return [{ status: "RECOMMENDED" as const, startDate: new Date(TODAY.getTime() + 7 * dayMs), forcedClubId: bedford.id }];
-    })(),
+    ...Object.keys(FORCED_COHORT_EXAMPLES).flatMap((clubName, i) => {
+      const exampleClub = clubs.find((c) => c.name === clubName);
+      if (!exampleClub || !clubGaps.has(exampleClub.id)) return [];
+      return [{ status: "RECOMMENDED" as const, startDate: new Date(TODAY.getTime() + (7 + i * 2) * dayMs), forcedClubId: exampleClub.id }];
+    }),
     // A handful of general recommendations (acquisition, referral, etc.) so
     // Planning isn't 100% capacity-gap campaigns.
     ...Array.from({ length: 3 }, (_, i) => ({
@@ -367,23 +391,22 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     if (plan.forcedClubId) {
       club = clubs.find((c) => c.id === plan.forcedClubId)!;
       gap = clubGaps.get(club.id)!;
-      const utilisationMechanics = mechanics.filter((m) => m.category === "UTILISATION");
-      mechanic = pick(`${seed}-mechanic`, utilisationMechanics.length > 0 ? utilisationMechanics : mechanics);
-      const cohort = cohortForGap(profileForClub.get(club.id)!, clubIndexById.get(club.id)!);
-      audience = cohort.audience;
-      persona = cohort.persona;
-      if (cohort.mechanicOverrideName) mechanic = mechanics.find((m) => m.name === cohort.mechanicOverrideName) ?? mechanic;
-      if (cohort.forcedIncentiveDepthPct !== undefined) forcedIncentiveDepthPct = cohort.forcedIncentiveDepthPct;
-
-      // Bedford: a hand-specified worked example — a joining-fee discount
-      // aimed squarely at homemakers and other flexible-schedule locals in
-      // the exact weekday 9am-12pm window the heatmap flags — rather than
-      // the generic profile-driven pick, so there's one concrete, fully
-      // specified case in the data alongside the general cohort pattern.
-      if (club.name === "Bedford") {
-        mechanic = mechanics.find((m) => m.name === "£0 Joining Fee") ?? mechanic;
-        audience = "GENERAL";
-        persona = "homemakers, retirees, and other flexible-schedule locals";
+      const example = FORCED_COHORT_EXAMPLES[club.name];
+      if (example) {
+        mechanic = mechanics.find((m) => m.name === example.mechanicName) ?? mechanics[0];
+        audience = example.audience;
+        persona = example.persona;
+      } else {
+        // Defensive fallback — every forcedClubId currently comes from
+        // FORCED_COHORT_EXAMPLES above, but keep this path grounded in the
+        // club's own detected cohort rather than throwing if that changes.
+        const utilisationMechanics = mechanics.filter((m) => m.category === "UTILISATION");
+        mechanic = pick(`${seed}-mechanic`, utilisationMechanics.length > 0 ? utilisationMechanics : mechanics);
+        const cohort = cohortForGap(profileForClub.get(club.id)!, clubIndexById.get(club.id)!);
+        audience = cohort.audience;
+        persona = cohort.persona;
+        if (cohort.mechanicOverrideName) mechanic = mechanics.find((m) => m.name === cohort.mechanicOverrideName) ?? mechanic;
+        if (cohort.forcedIncentiveDepthPct !== undefined) forcedIncentiveDepthPct = cohort.forcedIncentiveDepthPct;
       }
     } else {
       const utilisationMechanics = mechanics.filter((m) => m.category === "UTILISATION");
@@ -406,17 +429,17 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     const objectiveOptions = OBJECTIVES_FOR_MECHANIC[mechanic.name] ?? ["MAXIMISE_INCREMENTAL_JOINS"];
     const objective = gap ? "FILL_OFF_PEAK_CAPACITY" : pick(`${seed}-objective`, objectiveOptions);
 
-    const isBedfordExample = plan.forcedClubId !== undefined && club.name === "Bedford";
-    const budget = isBedfordExample ? 12000 : Math.round(seededRange(`${seed}-budget`, 3000, 42000) / 500) * 500;
+    const forcedExample = plan.forcedClubId !== undefined ? FORCED_COHORT_EXAMPLES[club.name] : undefined;
+    const budget = forcedExample ? forcedExample.budget : Math.round(seededRange(`${seed}-budget`, 3000, 42000) / 500) * 500;
     // NEEDS_ATTENTION and REJECTED are allowed to land on weak parameter
     // combos (that's literally why they need review / got turned down).
     // Every other status — including RECOMMENDED — is an "AI recommendation"
     // and should never be seeded with a predictably negative ROI.
     const healthy = plan.status !== "NEEDS_ATTENTION" && plan.status !== "REJECTED";
-    const incentiveDepthPct = isBedfordExample
-      ? 50
+    const incentiveDepthPct = forcedExample
+      ? forcedExample.incentiveDepthPct
       : (forcedIncentiveDepthPct ?? Math.round(seededRange(`${seed}-depth`, healthy ? 25 : 10, healthy ? 55 : 60)));
-    const durationWeeks = isBedfordExample ? 6 : Math.round(seededRange(`${seed}-duration`, healthy ? 4 : 2, 8));
+    const durationWeeks = forcedExample ? forcedExample.durationWeeks : Math.round(seededRange(`${seed}-duration`, healthy ? 4 : 2, 8));
     const offPeakOnly = gap !== null || (mechanic.category === "UTILISATION" && seededRandom(`${seed}-offpeak`) > 0.35);
 
     const util = clubUtilSummary.get(club.id)!;

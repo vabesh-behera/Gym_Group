@@ -309,15 +309,17 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     .sort((a, b) => clubGaps.get(a.id)!.avgUtilPct - clubGaps.get(b.id)!.avgUtilPct);
 
   // Hand-specified worked examples — guaranteed, fully-specified AI
-  // Recommended campaigns closing a real detected gap, one per cohort,
-  // rather than leaving that cohort's representation to opportunistic
-  // chance. Every other club's gap is still left as-is, surfaced as a
-  // Calendar Gap rather than auto-converted into a campaign.
+  // Recommended campaigns closing a real detected gap. Two clubs per named
+  // cohort, so every cohort has a couple of campaigns visible in Planning
+  // every time the data is seeded, rather than depending on the opportunistic
+  // gap-cycling below to happen to land on that cohort. The remaining club
+  // (Birmingham Broad Street) is left to opportunistic assignment, so not
+  // every club's gap is auto-converted into a campaign.
   const FORCED_COHORT_EXAMPLES: Record<
     string,
     {
       mechanicName: string;
-      audience: "GENERAL" | "STUDENT";
+      audience: "GENERAL" | "STUDENT" | "HYBRID_WORKER";
       cohortLabel: string;
       persona: string;
       incentiveDepthPct: number;
@@ -334,6 +336,15 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       budget: 12000,
       durationWeeks: 6,
     },
+    "Birmingham Perry Barr": {
+      mechanicName: "£0 Joining Fee",
+      audience: "GENERAL",
+      cohortLabel: "Homemakers",
+      persona: "homemakers and stay-at-home parents free during school hours",
+      incentiveDepthPct: 50,
+      budget: 10000,
+      durationWeeks: 6,
+    },
     Basingstoke: {
       mechanicName: "Daytime Access Pass",
       audience: "STUDENT",
@@ -341,6 +352,51 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       persona: "Gen Z students between lectures",
       incentiveDepthPct: 50,
       budget: 9000,
+      durationWeeks: 6,
+    },
+    Ayr: {
+      mechanicName: "Off-Peak Membership",
+      audience: "STUDENT",
+      cohortLabel: "Gen Z",
+      persona: "Gen Z students between lectures",
+      incentiveDepthPct: 40,
+      budget: 8500,
+      durationWeeks: 5,
+    },
+    Ashford: {
+      mechanicName: "Off-Peak Membership",
+      audience: "GENERAL",
+      cohortLabel: "Retirees",
+      persona: "retirees and other older members with flexible daytime schedules",
+      incentiveDepthPct: 35,
+      budget: 8000,
+      durationWeeks: 6,
+    },
+    Barnsley: {
+      mechanicName: "Daytime Access Pass",
+      audience: "GENERAL",
+      cohortLabel: "Retirees",
+      persona: "retirees and other older members with flexible daytime schedules",
+      incentiveDepthPct: 35,
+      budget: 7500,
+      durationWeeks: 6,
+    },
+    Bexleyheath: {
+      mechanicName: "Off-Peak Membership",
+      audience: "HYBRID_WORKER",
+      cohortLabel: "Hybrid Workers",
+      persona: "hybrid and remote workers on a midday break",
+      incentiveDepthPct: 30,
+      budget: 15000,
+      durationWeeks: 6,
+    },
+    Altrincham: {
+      mechanicName: "Daytime Access Pass",
+      audience: "HYBRID_WORKER",
+      cohortLabel: "Hybrid Workers",
+      persona: "hybrid and remote workers on a midday break",
+      incentiveDepthPct: 30,
+      budget: 12000,
       durationWeeks: 6,
     },
   };

@@ -176,7 +176,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
   // ---- Clubs ----
   // Explicitly typed (rather than left to evolve from push()) because it's
-  // now read from inside a closure below (FORCED_COHORT_EXAMPLES lookup),
+  // now read from inside a closure below (RECOMMENDED_CAMPAIGNS lookup),
   // where TS can't track an evolving array type across the function boundary.
   const clubs: Awaited<ReturnType<typeof prisma.club.create>>[] = [];
   for (const c of CLUB_SEED) {
@@ -309,27 +309,24 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     .filter((c) => clubGaps.has(c.id))
     .sort((a, b) => clubGaps.get(a.id)!.avgUtilPct - clubGaps.get(b.id)!.avgUtilPct);
 
-  // Hand-specified worked examples — guaranteed, fully-specified AI
-  // Recommended campaigns closing a real detected gap. Exactly one club per
-  // named cohort (trimmed back from two — too many off-peak-capacity
-  // campaigns crowded out the general recommendations), so each cohort still
-  // has a guaranteed, deterministic example rather than depending on the
-  // opportunistic gap-cycling below to land on it. Every other club's gap is
-  // left as-is, surfaced as a Calendar Gap rather than auto-converted into a
-  // campaign.
-  const FORCED_COHORT_EXAMPLES: Record<
-    string,
+  // The entire "AI Recommended Campaigns" list (next 3 months) is exactly
+  // these 6 hand-specified campaigns — nothing opportunistic or randomly
+  // generated. Four close a real detected off-peak gap for a named cohort;
+  // the other two are plain Corporate Membership Programme acquisition
+  // campaigns at two different clubs with two different objectives.
+  const RECOMMENDED_CAMPAIGNS: {
+    clubName: string;
+    mechanicName: string;
+    audience: "GENERAL" | "STUDENT" | "HYBRID_WORKER" | "CORPORATE";
+    objective?: string;
+    cohortLabel?: string;
+    persona?: string;
+    incentiveDepthPct: number;
+    budget: number;
+    durationWeeks: number;
+  }[] = [
     {
-      mechanicName: string;
-      audience: "GENERAL" | "STUDENT" | "HYBRID_WORKER";
-      cohortLabel: string;
-      persona: string;
-      incentiveDepthPct: number;
-      budget: number;
-      durationWeeks: number;
-    }
-  > = {
-    Bedford: {
+      clubName: "Bedford",
       mechanicName: "Daytime Access Pass",
       audience: "GENERAL",
       cohortLabel: "Homemakers",
@@ -338,7 +335,8 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       budget: 12000,
       durationWeeks: 6,
     },
-    Basingstoke: {
+    {
+      clubName: "Basingstoke",
       mechanicName: "Daytime Access Pass",
       audience: "STUDENT",
       cohortLabel: "Gen Z",
@@ -347,7 +345,8 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       budget: 9000,
       durationWeeks: 6,
     },
-    Ashford: {
+    {
+      clubName: "Ashford",
       mechanicName: "Off-Peak Membership",
       audience: "GENERAL",
       cohortLabel: "Retirees",
@@ -356,7 +355,8 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       budget: 8000,
       durationWeeks: 6,
     },
-    Altrincham: {
+    {
+      clubName: "Altrincham",
       mechanicName: "Daytime Access Pass",
       audience: "HYBRID_WORKER",
       cohortLabel: "Hybrid Workers",
@@ -365,7 +365,26 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       budget: 12000,
       durationWeeks: 6,
     },
-  };
+    {
+      clubName: "Barnsley",
+      mechanicName: "Corporate Membership Programme",
+      audience: "CORPORATE",
+      objective: "MAXIMISE_INCREMENTAL_JOINS",
+      incentiveDepthPct: 30,
+      budget: 18000,
+      durationWeeks: 6,
+    },
+    {
+      clubName: "Bexleyheath",
+      mechanicName: "Corporate Membership Programme",
+      audience: "CORPORATE",
+      objective: "IMPROVE_MEMBER_LIFETIME_CONTRIBUTION",
+      incentiveDepthPct: 25,
+      budget: 16000,
+      durationWeeks: 8,
+    },
+  ];
+  const recommendedSpecByClubName = new Map(RECOMMENDED_CAMPAIGNS.map((s) => [s.clubName, s]));
 
   const plannedCampaigns: PlannedCampaign[] = [
     ...Array.from({ length: 15 }, (_, i) => ({
@@ -382,17 +401,12 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       startDate: new Date(TODAY.getTime() - (2 + i * 3) * dayMs),
       forceCohort: i < 5,
     })),
-    ...Object.keys(FORCED_COHORT_EXAMPLES).flatMap((clubName, i) => {
-      const exampleClub = clubs.find((c) => c.name === clubName);
-      if (!exampleClub || !clubGaps.has(exampleClub.id)) return [];
-      return [{ status: "RECOMMENDED" as const, startDate: new Date(TODAY.getTime() + (7 + i * 2) * dayMs), forcedClubId: exampleClub.id }];
+    ...RECOMMENDED_CAMPAIGNS.flatMap((spec, i) => {
+      const specClub = clubs.find((c) => c.name === spec.clubName);
+      if (!specClub) return [];
+      if (spec.cohortLabel && !clubGaps.has(specClub.id)) return [];
+      return [{ status: "RECOMMENDED" as const, startDate: new Date(TODAY.getTime() + (7 + i * 2) * dayMs), forcedClubId: specClub.id }];
     }),
-    // A handful of general recommendations (acquisition, referral, etc.) so
-    // Planning isn't 100% capacity-gap campaigns.
-    ...Array.from({ length: 3 }, (_, i) => ({
-      status: "RECOMMENDED" as const,
-      startDate: new Date(TODAY.getTime() + (60 + i * 9) * dayMs),
-    })),
     ...Array.from({ length: 4 }, (_, i) => ({
       status: "NEEDS_ATTENTION" as const,
       startDate: new Date(TODAY.getTime() + (10 + i * 8) * dayMs),
@@ -429,19 +443,25 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
     if (plan.forcedClubId) {
       club = clubs.find((c) => c.id === plan.forcedClubId)!;
-      gap = clubGaps.get(club.id)!;
-      const example = FORCED_COHORT_EXAMPLES[club.name];
-      if (example) {
-        mechanic = mechanics.find((m) => m.name === example.mechanicName) ?? mechanics[0];
-        audience = example.audience;
-        cohortLabel = example.cohortLabel;
-        persona = example.persona;
+      const spec = recommendedSpecByClubName.get(club.name);
+      if (spec) {
+        mechanic = mechanics.find((m) => m.name === spec.mechanicName) ?? mechanics[0];
+        audience = spec.audience;
+        if (spec.cohortLabel) {
+          // The 4 gap-targeted specs close a real detected off-peak window;
+          // the 2 Corporate Membership Programme specs are plain acquisition
+          // campaigns with no gap to target.
+          gap = clubGaps.get(club.id)!;
+          cohortLabel = spec.cohortLabel;
+          persona = spec.persona ?? null;
+        }
       } else {
         // Defensive fallback — every forcedClubId currently comes from
-        // FORCED_COHORT_EXAMPLES above, but keep this path grounded in the
+        // RECOMMENDED_CAMPAIGNS above, but keep this path grounded in the
         // club's own detected cohort rather than throwing if that changes.
         const utilisationMechanics = mechanics.filter((m) => m.category === "UTILISATION");
         mechanic = pick(`${seed}-mechanic`, utilisationMechanics.length > 0 ? utilisationMechanics : mechanics);
+        gap = clubGaps.get(club.id) ?? null;
         const cohort = cohortForGap(profileForClub.get(club.id)!, clubIndexById.get(club.id)!);
         audience = cohort.audience;
         cohortLabel = cohort.cohortLabel;
@@ -463,7 +483,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         audience = cohort.audience;
         persona = cohort.persona;
         // Every named cohort already has exactly one guaranteed showcase
-        // campaign under AI Recommended (FORCED_COHORT_EXAMPLES) — don't let
+        // campaign under AI Recommended (RECOMMENDED_CAMPAIGNS) — don't let
         // an opportunistic pick duplicate that cohort's name/offer a second
         // time in the same Recommended list. The campaign still targets this
         // club's real detected gap, just without the cohort label/mechanic
@@ -476,10 +496,11 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       }
     }
 
-    const objectiveOptions = OBJECTIVES_FOR_MECHANIC[mechanic.name] ?? ["MAXIMISE_INCREMENTAL_JOINS"];
-    const objective = gap ? "FILL_OFF_PEAK_CAPACITY" : pick(`${seed}-objective`, objectiveOptions);
+    const forcedExample = plan.forcedClubId !== undefined ? recommendedSpecByClubName.get(club.name) : undefined;
 
-    const forcedExample = plan.forcedClubId !== undefined ? FORCED_COHORT_EXAMPLES[club.name] : undefined;
+    const objectiveOptions = OBJECTIVES_FOR_MECHANIC[mechanic.name] ?? ["MAXIMISE_INCREMENTAL_JOINS"];
+    const objective = gap ? "FILL_OFF_PEAK_CAPACITY" : (forcedExample?.objective ?? pick(`${seed}-objective`, objectiveOptions));
+
     const budget = forcedExample ? forcedExample.budget : Math.round(seededRange(`${seed}-budget`, 3000, 42000) / 500) * 500;
     // NEEDS_ATTENTION and REJECTED are allowed to land on weak parameter
     // combos (that's literally why they need review / got turned down).

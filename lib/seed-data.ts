@@ -135,8 +135,9 @@ function cohortForGap(profile: UtilProfile, clubIndex: number): Cohort {
   return { audience: "GENERAL", cohortLabel: "Retirees", persona: "retirees and other older members with flexible daytime schedules" };
 }
 
-function gapRationale(mechanicName: string, clubName: string, gap: CapacityGap, cohortLabel: string, persona: string, roi: number) {
-  return `${cohortLabel} — ${persona} — are underusing ${clubName}'s ${gap.dayLabel} ${formatHourRange(gap.hourStart, gap.hourEnd)} window, at just ${gap.avgUtilPct}% utilisation (well below the 40% healthy threshold). ${mechanicName} targeted at this cohort in this specific slot is projected to lift attendance and deliver ${roi}% ROI.`;
+function gapRationale(mechanicName: string, clubName: string, gap: CapacityGap, cohortLabel: string | null, persona: string, roi: number) {
+  const lead = cohortLabel ? `${cohortLabel} — ${persona}` : persona;
+  return `${lead} are underusing ${clubName}'s ${gap.dayLabel} ${formatHourRange(gap.hourStart, gap.hourEnd)} window, at just ${gap.avgUtilPct}% utilisation (well below the 40% healthy threshold). ${mechanicName} targeted at this group in this specific slot is projected to lift attendance and deliver ${roi}% ROI.`;
 }
 
 export async function seedDatabase(log: (msg: string) => void = console.log) {
@@ -460,10 +461,18 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         gap = clubGaps.get(club.id)!;
         const cohort = cohortForGap(profileForClub.get(club.id)!, clubIndexById.get(club.id)!);
         audience = cohort.audience;
-        cohortLabel = cohort.cohortLabel;
         persona = cohort.persona;
-        if (cohort.mechanicOverrideName) mechanic = mechanics.find((m) => m.name === cohort.mechanicOverrideName) ?? mechanic;
-        if (cohort.forcedIncentiveDepthPct !== undefined) forcedIncentiveDepthPct = cohort.forcedIncentiveDepthPct;
+        // Every named cohort already has exactly one guaranteed showcase
+        // campaign under AI Recommended (FORCED_COHORT_EXAMPLES) — don't let
+        // an opportunistic pick duplicate that cohort's name/offer a second
+        // time in the same Recommended list. The campaign still targets this
+        // club's real detected gap, just without the cohort label/mechanic
+        // override that's reserved for the one guaranteed example.
+        if (plan.status !== "RECOMMENDED") {
+          cohortLabel = cohort.cohortLabel;
+          if (cohort.mechanicOverrideName) mechanic = mechanics.find((m) => m.name === cohort.mechanicOverrideName) ?? mechanic;
+          if (cohort.forcedIncentiveDepthPct !== undefined) forcedIncentiveDepthPct = cohort.forcedIncentiveDepthPct;
+        }
       }
     }
 
@@ -507,7 +516,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
     const campaign = await prisma.campaign.create({
       data: {
-        name: gap ? `${club.name} Weekday Daytime — ${mechanic.name} (${cohortLabel})` : `${club.name} ${mechanic.name}`,
+        name: gap ? `${club.name} Weekday Daytime — ${mechanic.name}${cohortLabel ? ` (${cohortLabel})` : ""}` : `${club.name} ${mechanic.name}`,
         objective: objective as never,
         status: plan.status,
         audienceType: audience as never,
@@ -524,7 +533,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         predictedRetention: sim.predictedRetentionPct,
         confidence,
         aiRationale:
-          gap && persona && cohortLabel
+          gap && persona
             ? gapRationale(mechanic.name, club.name, gap, cohortLabel, persona, sim.predictedRoiPct)
             : rationale(mechanic.name, club.name, objective, sim.predictedRoiPct),
         minRoiGuardrail: plan.status === "NEEDS_ATTENTION" ? Math.round(seededRange(`${seed}-minroi`, 15, 30)) : null,

@@ -111,6 +111,12 @@ export const MECHANICS_SEED = [
     category: "UTILISATION" as const,
     businessObjective: "Increase member value",
   },
+  {
+    name: "Loyalty Commitment Plan",
+    howItWorks: "Discount depth increases with sign-up length (3/6/12-month tiers)",
+    category: "ACQUISITION" as const,
+    businessObjective: "Improve member lifetime value via longer commitment",
+  },
 ];
 
 // Single source of truth for which campaign objectives a mechanic can serve —
@@ -128,6 +134,7 @@ export const OBJECTIVES_FOR_MECHANIC: Record<string, string[]> = {
   "Daytime Access Pass": ["FILL_OFF_PEAK_CAPACITY"],
   "Weekend Membership": ["FILL_OFF_PEAK_CAPACITY"],
   "Gym Upgrade Bundle": ["IMPROVE_MEMBER_LIFETIME_CONTRIBUTION", "REACTIVATE_DORMANT_MEMBERS"],
+  "Loyalty Commitment Plan": ["IMPROVE_MEMBER_LIFETIME_CONTRIBUTION", "MAXIMISE_INCREMENTAL_JOINS"],
 };
 
 export const REGION_NAMES = ["London & South East", "Midlands", "North & Scotland"];

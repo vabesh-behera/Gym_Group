@@ -23,6 +23,7 @@ const AUDIENCE_FOR_MECHANIC: Record<string, string[]> = {
   "Daytime Access Pass": ["HYBRID_WORKER"],
   "Weekend Membership": ["GENERAL"],
   "Gym Upgrade Bundle": ["ENGAGED_MEMBER"],
+  "Loyalty Commitment Plan": ["GENERAL"],
 };
 
 function rationale(mechanicName: string, clubName: string, objective: string, roi: number) {
@@ -303,6 +304,11 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     // retirees, hybrid workers) — rather than leaving cohort variety to
     // chance on a random mechanic pick across the whole catalogue.
     forceCohort?: boolean;
+    // When set, this campaign is genuinely portfolio-wide — no club, no
+    // region — for offers that aren't tied to any single site's capacity or
+    // cohort, just a company-wide pricing structure (e.g. commitment-length
+    // discount tiers).
+    portfolioWide?: boolean;
   };
 
   const gapClubsWorstFirst = clubs
@@ -386,6 +392,26 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
   ];
   const recommendedSpecByClubName = new Map(RECOMMENDED_CAMPAIGNS.map((s) => [s.clubName, s]));
 
+  // A genuinely portfolio-wide campaign — no single club or region, applies
+  // identically everywhere — for a commitment-length discount structure
+  // (the longer you sign up for, the deeper the discount) rather than
+  // anything tied to a specific site's capacity or cohort.
+  const PORTFOLIO_WIDE_SPEC = {
+    mechanicName: "Loyalty Commitment Plan",
+    audience: "GENERAL" as const,
+    objective: "IMPROVE_MEMBER_LIFETIME_CONTRIBUTION",
+    incentiveDepthPct: 35, // blended average across the 3/6/12-month tiers
+    budget: 45000, // spans every club, not one site's budget
+    durationWeeks: 12,
+  };
+  // Blended stand-ins for a single club's utilisation/capacity, used only
+  // when a campaign has no specific club to read real numbers from.
+  const portfolioUtilSummary = {
+    peak: [...clubUtilSummary.values()].reduce((s, v) => s + v.peak, 0) / clubUtilSummary.size,
+    offPeak: [...clubUtilSummary.values()].reduce((s, v) => s + v.offPeak, 0) / clubUtilSummary.size,
+  };
+  const portfolioPeakCapacity = clubs.reduce((s, c) => s + c.peakCapacity, 0);
+
   const plannedCampaigns: PlannedCampaign[] = [
     ...Array.from({ length: 15 }, (_, i) => ({
       status: "COMPLETED" as const,
@@ -407,6 +433,9 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       if (spec.cohortLabel && !clubGaps.has(specClub.id)) return [];
       return [{ status: "RECOMMENDED" as const, startDate: new Date(TODAY.getTime() + (7 + i * 2) * dayMs), forcedClubId: specClub.id }];
     }),
+    // Commitment-length discount tiers apply everywhere, not to one club —
+    // a 7th Recommended entry, but with no club/region at all.
+    { status: "RECOMMENDED" as const, startDate: new Date(TODAY.getTime() + 21 * dayMs), portfolioWide: true },
     ...Array.from({ length: 4 }, (_, i) => ({
       status: "NEEDS_ATTENTION" as const,
       startDate: new Date(TODAY.getTime() + (10 + i * 8) * dayMs),
@@ -433,7 +462,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     const plan = plannedCampaigns[i];
     const seed = `campaign-${i}`;
 
-    let club: (typeof clubs)[number];
+    let club: (typeof clubs)[number] | null;
     let mechanic: (typeof mechanics)[number];
     let audience: string;
     let gap: CapacityGap | null = null;
@@ -441,7 +470,11 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
     let cohortLabel: string | null = null;
     let forcedIncentiveDepthPct: number | null = null;
 
-    if (plan.forcedClubId) {
+    if (plan.portfolioWide) {
+      club = null;
+      mechanic = mechanics.find((m) => m.name === PORTFOLIO_WIDE_SPEC.mechanicName) ?? mechanics[0];
+      audience = PORTFOLIO_WIDE_SPEC.audience;
+    } else if (plan.forcedClubId) {
       club = clubs.find((c) => c.id === plan.forcedClubId)!;
       const spec = recommendedSpecByClubName.get(club.name);
       if (spec) {
@@ -496,24 +529,25 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       }
     }
 
-    const forcedExample = plan.forcedClubId !== undefined ? recommendedSpecByClubName.get(club.name) : undefined;
+    const forcedExample = plan.forcedClubId !== undefined ? recommendedSpecByClubName.get(club!.name) : undefined;
+    const spec = forcedExample ?? (plan.portfolioWide ? PORTFOLIO_WIDE_SPEC : undefined);
 
     const objectiveOptions = OBJECTIVES_FOR_MECHANIC[mechanic.name] ?? ["MAXIMISE_INCREMENTAL_JOINS"];
-    const objective = gap ? "FILL_OFF_PEAK_CAPACITY" : (forcedExample?.objective ?? pick(`${seed}-objective`, objectiveOptions));
+    const objective = gap ? "FILL_OFF_PEAK_CAPACITY" : (spec?.objective ?? pick(`${seed}-objective`, objectiveOptions));
 
-    const budget = forcedExample ? forcedExample.budget : Math.round(seededRange(`${seed}-budget`, 3000, 42000) / 500) * 500;
+    const budget = spec ? spec.budget : Math.round(seededRange(`${seed}-budget`, 3000, 42000) / 500) * 500;
     // NEEDS_ATTENTION and REJECTED are allowed to land on weak parameter
     // combos (that's literally why they need review / got turned down).
     // Every other status — including RECOMMENDED — is an "AI recommendation"
     // and should never be seeded with a predictably negative ROI.
     const healthy = plan.status !== "NEEDS_ATTENTION" && plan.status !== "REJECTED";
-    const incentiveDepthPct = forcedExample
-      ? forcedExample.incentiveDepthPct
+    const incentiveDepthPct = spec
+      ? spec.incentiveDepthPct
       : (forcedIncentiveDepthPct ?? Math.round(seededRange(`${seed}-depth`, healthy ? 25 : 10, healthy ? 55 : 60)));
-    const durationWeeks = forcedExample ? forcedExample.durationWeeks : Math.round(seededRange(`${seed}-duration`, healthy ? 4 : 2, 8));
+    const durationWeeks = spec ? spec.durationWeeks : Math.round(seededRange(`${seed}-duration`, healthy ? 4 : 2, 8));
     const offPeakOnly = gap !== null || (mechanic.category === "UTILISATION" && seededRandom(`${seed}-offpeak`) > 0.35);
 
-    const util = clubUtilSummary.get(club.id)!;
+    const util = club ? clubUtilSummary.get(club.id)! : portfolioUtilSummary;
     // When this campaign is targeting a detected gap, feed the elasticity
     // model that specific window's utilisation rather than the club's
     // broader off-peak average, so the predicted ROI is computed against
@@ -525,7 +559,7 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
       durationWeeks,
       budgetGbp: budget,
       offPeakOnly,
-      club: { peakCapacity: club.peakCapacity, currentPeakUtilPct: util.peak, currentOffPeakUtilPct },
+      club: { peakCapacity: club ? club.peakCapacity : portfolioPeakCapacity, currentPeakUtilPct: util.peak, currentOffPeakUtilPct },
       guardrails: {},
     });
 
@@ -534,16 +568,17 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
 
     const isPast = plan.status === "COMPLETED" || plan.status === "ACTIVE";
     const noise = seededRange(`${seed}-noise`, 0.75, 1.2);
+    const clubLabel = club ? club.name : "every club";
 
     const campaign = await prisma.campaign.create({
       data: {
-        name: gap ? `${club.name} Weekday Daytime — ${mechanic.name}${cohortLabel ? ` (${cohortLabel})` : ""}` : `${club.name} ${mechanic.name}`,
+        name: club ? `${gap ? `${club.name} Weekday Daytime` : club.name} — ${mechanic.name}${cohortLabel ? ` (${cohortLabel})` : ""}` : `All Clubs — ${mechanic.name}`,
         objective: objective as never,
         status: plan.status,
         audienceType: audience as never,
         mechanicId: mechanic.id,
-        clubId: club.id,
-        regionId: club.regionId,
+        clubId: club?.id,
+        regionId: club?.regionId,
         startDate: plan.startDate,
         endDate,
         budget,
@@ -555,8 +590,8 @@ export async function seedDatabase(log: (msg: string) => void = console.log) {
         confidence,
         aiRationale:
           gap && persona
-            ? gapRationale(mechanic.name, club.name, gap, cohortLabel, persona, sim.predictedRoiPct)
-            : rationale(mechanic.name, club.name, objective, sim.predictedRoiPct),
+            ? gapRationale(mechanic.name, clubLabel, gap, cohortLabel, persona, sim.predictedRoiPct)
+            : rationale(mechanic.name, clubLabel, objective, sim.predictedRoiPct),
         minRoiGuardrail: plan.status === "NEEDS_ATTENTION" ? Math.round(seededRange(`${seed}-minroi`, 15, 30)) : null,
         maxPeakOccupancyGuardrail: plan.status === "NEEDS_ATTENTION" ? Math.round(seededRange(`${seed}-maxpeak`, 85, 95)) : null,
         actualJoins: isPast ? Math.round(sim.predictedJoins * noise) : null,

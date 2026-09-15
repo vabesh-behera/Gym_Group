@@ -124,7 +124,7 @@ function RecommendationTable({ campaigns, emptyText }: { campaigns: PlanningCamp
                   )}
                 </div>
                 <p className="mt-0.5 text-xs font-medium text-accent-dark">{offerLine(c)}</p>
-                <p className="mt-1 text-xs text-slate-600">{c.club?.name ?? c.region?.name}</p>
+                <p className="mt-1 text-xs text-slate-600">{c.club?.name ?? c.region?.name ?? "All Clubs"}</p>
                 <p className="mt-1 line-clamp-2 text-xs text-muted">{c.aiRationale}</p>
               </td>
               <td className="px-3 py-3.5">

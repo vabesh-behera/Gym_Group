@@ -70,7 +70,7 @@ export default async function SimulationIndexPage({
                       </Badge>
                     </div>
                     <p className={cn("mt-0.5 text-xs", c.id === campaignId ? "text-white/60" : "text-muted")}>
-                      {c.club?.name ?? c.region?.name} · {c.predictedRoi}% ROI
+                      {c.club?.name ?? c.region?.name ?? "All Clubs"} · {c.predictedRoi}% ROI
                     </p>
                   </Link>
                 ))}
